@@ -11,11 +11,11 @@ class Data:
 
         self.__names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
 
-    def read(self, **kwargs):
+    def read(self, save=True, **kwargs):
         if self.cartesian:
             return self.__open_cartesian(**kwargs)
         else:
-            self.__open_gaia()
+            self.__open_gaia(save=save)
 
     def __open_cartesian(self, **kwargs):
         if 'names' in kwargs.keys():
@@ -25,5 +25,6 @@ class Data:
 
         return data
 
-    def __open_gaia(self):
+    def __open_gaia(self, save=True):
+        # 10.1051/0004-6361/201832964
         pass
