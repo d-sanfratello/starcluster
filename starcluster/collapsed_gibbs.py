@@ -948,7 +948,7 @@ class MF_Sampler():
             'assignment': assign,
             'pi': {cid: self.alpha0 / self.icn for cid in cluster_ids},
             'ev_in_cl': {cid: list(np.where(np.array(assign) == cid)[0]) for cid in cluster_ids},
-            'logL_D': {cid: None for cid in cluster_ids}
+            'logL_D': {cid: None for cid in cluster_ids},
             'starting_points': {}
             }
         for cid in state['cluster_ids_']:
