@@ -121,7 +121,7 @@ class Data:
 
     def __eq_to_cartesian(self, data):
         coords = SkyCoord(frame='icrs',
-                          equinox='J2015.5',
+                          equinox=data['ref_epoch'],
                           ra=data['ra']*u.deg,
                           dec=data['dec']*u.deg,
                           pm_ra_cosdec=data['pmra']*u.mas/u.year,
