@@ -122,13 +122,16 @@ class Data:
                    header='x\ty\tz\tvx\tvy\tvz')
 
     def __eq_to_cartesian(self, data):
+        parallax = data['parallax'] * u.mas
+        distance = parallax.to(u.pc, equivalencies=u.parallax())
+
         coords = SkyCoord(frame='icrs',
                           equinox=data['ref_epoch'],
                           ra=data['ra']*u.deg,
                           dec=data['dec']*u.deg,
                           pm_ra_cosdec=data['pmra']*u.mas/u.year,
                           pm_dec=data['pmdec']*u.mas/u.year,
-                          parallax=data['parallax']*u.mas,
+                          distance=distance,
                           radial_velocity=data['radial_velocity']*u.km/u.s)
 
         coords_galactic = coords.transform_to('galactic')
