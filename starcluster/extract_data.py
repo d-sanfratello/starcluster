@@ -2,6 +2,7 @@ import numpy as np
 import os
 
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from astropy import units as u
 from pathlib import Path
 
@@ -125,8 +126,10 @@ class Data:
         parallax = data['parallax'] * u.mas
         distance = parallax.to(u.pc, equivalencies=u.parallax())
 
+        epochs = Time(data['ref_epoch'], format='jyear')
+
         coords = SkyCoord(frame='icrs',
-                          equinox=data['ref_epoch'],
+                          equinox=epochs,
                           ra=data['ra']*u.deg,
                           dec=data['dec']*u.deg,
                           pm_ra_cosdec=data['pmra']*u.mas/u.year,
@@ -136,8 +139,12 @@ class Data:
 
         coords_galactic = coords.transform_to('galactic')
 
-        data_cart = np.array([], dtype=self.__dtype)
-        data_cart['x', 'y', 'z'] = coords_galactic.cartesian.xyz
-        data_cart['vx', 'vy', 'vz'] = coords_galactic.velociity.d_xyz
+        data_cart = np.zeros(len(data), dtype=self.__dtype)
+        data_cart['x'] = coords_galactic.cartesian.x.value
+        data_cart['y'] = coords_galactic.cartesian.y.value
+        data_cart['z'] = coords_galactic.cartesian.z.value
+        data_cart['vx'] = coords_galactic.velocity.d_x.value
+        data_cart['vy'] = coords_galactic.velocity.d_y.value
+        data_cart['vz'] = coords_galactic.velocity.d_z.value
 
         return data_cart
