@@ -101,7 +101,9 @@ class Data:
     def __open_gaia(self, outpath=None, **kwargs):
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
-        data = np.genfromtxt(self.path)
+        data = np.genfromtxt(self.path,
+                             delimiter=',',
+                             names=True)
 
         if 'ruwe' in kwargs.keys():
             ruwe_lim = kwargs['ruwe']
