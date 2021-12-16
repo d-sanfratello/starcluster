@@ -7,9 +7,33 @@ from pathlib import Path
 
 
 class Data:
-    def __init__(self, path, *, cartesian=False):
-        self.path = path
-        self.cartesian = cartesian
+    def __init__(self, path, *, is_cartesian=False):
+        """
+        Class to open an existing file containing astrometric data.
+
+        If `is_cartesian` is True, this class will read a txt file containing
+        data in galactic cartesian coordinates. If `is_cartesian` is False,
+        it reads data from a gaia csv file and uses astropy to convert gaia
+        data to galactic cartesian coordinates, gaia data must contain the
+        `ruwe` column, to select good quality data, as expressed in
+        GAIA-C3-TN-LU-LL-124-01 document.
+
+        Data converted from a gaia csv file is then saved into a new file in
+        galactic cartesian coordinates.
+
+        Parameters
+        ----------
+        path:
+            'str' or 'Path-like'. The path to the file containing data. For
+            differences between datasets in galactic cartesian components and as
+            a gaia dataset, read below.
+        is_cartesian:
+            'bool'. If True, the path given in `path` contains data already
+            converted into galactic cartesian components. See `Data.read` for
+            further information.
+        """
+        self.path = Path(path)
+        self.is_cartesian = is_cartesian
 
         self.__names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
         self.__dtype = np.dtype([('x', float),
@@ -20,7 +44,48 @@ class Data:
                                  ('vz', float)])
 
     def read(self, outpath=None, **kwargs):
-        if self.cartesian:
+        """
+        Method of the `Data` class to read the file whose path was defined in
+        the `Data.path` attribute.
+
+        If 'Data.is_cartesian` is True, this method reads the file and
+        returns a structured array. The file must be formatted with six
+        columns containing the x, y and z coordinates and vx, vy and vz
+        velocities. Each row corresponds to a star. The structured array has
+        labels 'x', 'y', 'z', 'vx', 'vy', 'vz'.
+
+        If `Data.is_cartesian` is False, this method reads the file as a gaia
+        dataset, it creates an `astropy.coordinates.SkyCoord` object with
+        right ascension, declination, parallax, proper motion and distances
+        for each source. Frame of reference is set as 'ICRS' and epoch J2015.5.
+        Gaia data must contain the 'ruwe' column, as it is used to choose
+        good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01 document.
+
+        Parameters
+        ----------
+        outpath:
+            None, 'str' or 'Path-like'. The path of the output file to save
+            cartesian coordinates data if a gaia dataset is read. If None,
+            it saves the data in the current working directory in a file
+            named 'gaia_galactic.txt'. (Optional)
+        kwargs:
+            It `Data.is_cartesian` is True, it is any keyword argument
+            np.genfromtxt accepts. In this case, however, `names` keyword
+            argument is overwritten to look for the six coordinates 'x', 'y',
+            'z', 'vx', 'vy', 'vz'.
+            If `Data.is_cartesian` is False it is `ruwe` and is the RUWE
+            limit to accept good data. See GAIA-C3-TN-LU-LL-124-01 document
+            for further information. If no `ruwe` is passed in kwargs,
+            the limit is set to np.inf, accepting all data.
+
+        Returns
+        -------
+        Numpy structured array:
+            If `Data.is_cartesian` is True, it returns a numpy structured
+            array with fields 'x', 'y', 'z', 'vx', 'vy' and 'vz' containing
+            the galactic cartesian coordinates for each star.
+        """
+        if self.is_cartesian:
             return self.__open_cartesian(**kwargs)
         else:
             self.__open_gaia(outpath=outpath, **kwargs)
@@ -56,7 +121,7 @@ class Data:
 
     def __eq_to_cartesian(self, data):
         coords = SkyCoord(frame='icrs',
-                          epoc='J2015.5',
+                          equinox='J2015.5',
                           ra=data['ra']*u.deg,
                           dec=data['dec']*u.deg,
                           pm_ra_cosdec=data['pmra']*u.mas/u.year,
