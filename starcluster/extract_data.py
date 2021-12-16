@@ -12,12 +12,18 @@ class Data:
         self.cartesian = cartesian
 
         self.__names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+        self.__dtype = np.dtype([('x', float),
+                                 ('y', float),
+                                 ('z', float),
+                                 ('vx', float),
+                                 ('vy', float),
+                                 ('vz', float)])
 
-    def read(self, save=True, outpath=None, **kwargs):
+    def read(self, outpath=None, **kwargs):
         if self.cartesian:
             return self.__open_cartesian(**kwargs)
         else:
-            self.__open_gaia(save=save, outpath=outpath, **kwargs)
+            self.__open_gaia(outpath=outpath, **kwargs)
 
     def __open_cartesian(self, **kwargs):
         if 'names' in kwargs.keys():
@@ -27,7 +33,7 @@ class Data:
 
         return data
 
-    def __open_gaia(self, save=True, outpath=None, **kwargs):
+    def __open_gaia(self, outpath=None, **kwargs):
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
         data = np.genfromtxt(self.path)
@@ -37,8 +43,16 @@ class Data:
         else:
             ruwe_lim = np.inf
 
-        data_good = data[data['ruwe'] <= ruwe_lim] # GAIA-C3-TN-LU-LL-124-01
+        data_good = data[data['ruwe'] <= ruwe_lim]  # GAIA-C3-TN-LU-LL-124-01
         data = self.__eq_to_cartesian(data_good)
+
+        if outpath is None:
+            outpath = os.getcwd()
+        outpath = Path(outpath)
+
+        np.savetxt(outpath.joinpath('gaia_galactic.txt'),
+                   data,
+                   header='x\ty\tz\tvx\tvy\tvz')
 
     def __eq_to_cartesian(self, data):
         coords = SkyCoord(frame='icrs',
@@ -52,3 +66,8 @@ class Data:
 
         coords_galactic = coords.transform_to('galactic')
 
+        data_cart = np.array([], dtype=self.__dtype)
+        data_cart['x', 'y', 'z'] = coords_galactic.cartesian.xyz
+        data_cart['vx', 'vy', 'vz'] = coords_galactic.velociity.d_xyz
+
+        return data_cart
