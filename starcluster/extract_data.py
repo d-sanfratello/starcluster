@@ -44,7 +44,7 @@ class Data:
                                  ('vy', float),
                                  ('vz', float)])
 
-    def read(self, outpath=None, **kwargs):
+    def read(self, outpath=None, *, ruwe=None):
         """
         Method of the `Data` class to read the file whose path was defined in
         the `Data.path` attribute.
@@ -58,9 +58,11 @@ class Data:
         If `Data.is_cartesian` is False, this method reads the file as a gaia
         dataset, it creates an `astropy.coordinates.SkyCoord` object with
         right ascension, declination, parallax, proper motion and distances
-        for each source. Frame of reference is set as 'ICRS' and epoch J2015.5.
-        Gaia data must contain the 'ruwe' column, as it is used to choose
-        good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01 document.
+        for each source. Frame of reference is set as 'ICRS' and epoch given
+        from data. Gaia data must contain the 'ruwe' column, as it is used
+        to choose good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01
+        document. It must, also, contain the column 'ref_epoch', as it is
+        used to convert to galactic coordinates.
 
         Parameters
         ----------
@@ -69,15 +71,11 @@ class Data:
             cartesian coordinates data if a gaia dataset is read. If None,
             it saves the data in the current working directory in a file
             named 'gaia_galactic.txt'. (Optional)
-        kwargs:
-            It `Data.is_cartesian` is True, it is any keyword argument
-            np.genfromtxt accepts. In this case, however, `names` keyword
-            argument is overwritten to look for the six coordinates 'x', 'y',
-            'z', 'vx', 'vy', 'vz'.
-            If `Data.is_cartesian` is False it is `ruwe` and is the RUWE
-            limit to accept good data. See GAIA-C3-TN-LU-LL-124-01 document
-            for further information. If no `ruwe` is passed in kwargs,
-            the limit is set to np.inf, accepting all data.
+        ruwe:
+            If `Data.is_cartesian` is False it is the RUWE limit to accept
+            good data. See GAIA-C3-TN-LU-LL-124-01 document for further
+            information. If `ruwe` is None, the limit is set to np.inf,
+            accepting all data.
 
         Returns
         -------
@@ -87,40 +85,40 @@ class Data:
             the galactic cartesian coordinates for each star.
         """
         if self.is_cartesian:
-            return self.__open_cartesian(**kwargs)
+            return self.__open_cartesian()
         else:
-            self.__open_gaia(outpath=outpath, **kwargs)
+            self.__open_gaia(outpath=outpath, ruwe=ruwe)
 
-    def __open_cartesian(self, **kwargs):
-        if 'names' in kwargs.keys():
-            kwargs['names'] = self.__names
-
-        data = np.genfromtxt(self.path, **kwargs)
+    def __open_cartesian(self):
+        data = np.genfromtxt(self.path,
+                             delimiter=',',
+                             names=True)
 
         return data
 
-    def __open_gaia(self, outpath=None, **kwargs):
+    def __open_gaia(self, outpath=None, *, ruwe=None):
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
         data = np.genfromtxt(self.path,
                              delimiter=',',
                              names=True)
 
-        if 'ruwe' in kwargs.keys():
-            ruwe_lim = kwargs['ruwe']
-        else:
-            ruwe_lim = np.inf
+        if ruwe is None:
+            ruwe = np.inf
 
-        data_good = data[data['ruwe'] <= ruwe_lim]  # GAIA-C3-TN-LU-LL-124-01
+        data_good = data[data['ruwe'] <= ruwe]  # GAIA-C3-TN-LU-LL-124-01
         data = self.__eq_to_cartesian(data_good)
 
         if outpath is None:
             outpath = os.getcwd()
-        outpath = Path(outpath)
+            outpath = Path(outpath).joinpath('gaia_galactic.txt')
+        else:
+            outpath = Path(outpath)
 
-        np.savetxt(outpath.joinpath('gaia_galactic.txt'),
+        np.savetxt(outpath,
                    data,
-                   header='x\ty\tz\tvx\tvy\tvz')
+                   header='x,y,z,vx,vy,vz',
+                   delimiter=',')
 
     def __eq_to_cartesian(self, data):
         parallax = data['parallax'] * u.mas
