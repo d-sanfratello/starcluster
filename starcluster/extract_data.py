@@ -92,7 +92,8 @@ class Data:
     def __open_cartesian(self):
         data = np.genfromtxt(self.path,
                              delimiter=',',
-                             names=True)
+                             names=True,
+                             filling_values=np.nan)
 
         return data
 
@@ -101,12 +102,22 @@ class Data:
         # 10.1051/0004-6361/201832727 - astrometric solution
         data = np.genfromtxt(self.path,
                              delimiter=',',
-                             names=True)
+                             names=True,
+                             filling_values=np.nan)
 
+        # Selecting data based on missing parameters
+        astrometry_cols = ['ra', 'dec', 'parallax',
+                           'pmra', 'pmdec', 'radial_velocity',
+                           'ruwe', 'ref_epoch']
+        for col in astrometry_cols:
+            idx = np.where(~np.isnan(data[col]))
+            data = data[idx]
+
+        # Selecting data based on RUWE (GAIA-C3-TN-LU-LL-124-01)
         if ruwe is None:
             ruwe = np.inf
+        data_good = data[data['ruwe'] <= ruwe]
 
-        data_good = data[data['ruwe'] <= ruwe]  # GAIA-C3-TN-LU-LL-124-01
         data = self.__eq_to_cartesian(data_good)
 
         if outpath is None:
