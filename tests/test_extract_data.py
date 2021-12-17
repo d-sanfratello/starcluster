@@ -48,3 +48,20 @@ class TestData:
         rec_col = gaia_rec['x']
         assert len(rec_col) == 3,\
             "Something went wrong with the ruwe condition."
+
+    def test_missing_data(self):
+        gaia_path = Path('./missing.csv')
+        gaia_cart_path = Path('./gaia_missing.txt')
+
+        gaia_data = Data(gaia_path, is_cartesian=False)
+        gaia_data.read(outpath='./gaia_missing.txt')
+
+        gaia_cart = Data(gaia_cart_path, is_cartesian=True)
+        gaia_rec = gaia_cart.read()
+
+        for col in gaia_rec.dtype.names:
+            assert np.isnan(gaia_rec[col]).all() == False, \
+                "Soemthing went wrong with the NaN check. NaNs remaining."
+        rec_col = gaia_rec['x']
+        assert len(rec_col) == 3, \
+            "Something went wrong with the NaN check. Too long record."
