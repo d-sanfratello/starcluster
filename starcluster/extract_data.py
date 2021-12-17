@@ -62,7 +62,8 @@ class Data:
         from data. Gaia data must contain the 'ruwe' column, as it is used
         to choose good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01
         document. It must, also, contain the column 'ref_epoch', as it is
-        used to convert to galactic coordinates.
+        used to convert to galactic coordinates. Any row containing missing
+        data is deleted before conversion into galactic cartesian coordinates.
 
         Parameters
         ----------
