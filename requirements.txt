@@ -1,16 +1,7 @@
 numpy
-os
-optparse
-configparser
-sys
-importlib
 matplotlib
-pickle
-re
-collections
-time
 numba
 cython
 h5py
 astropy
-distutils
+pytest
