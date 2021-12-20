@@ -5,3 +5,4 @@ cython
 h5py
 astropy
 pytest
+scipy
