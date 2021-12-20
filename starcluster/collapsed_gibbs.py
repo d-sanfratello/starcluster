@@ -2,8 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from scipy.special import gammaln
-
 import ray
 from collections import namedtuple, Counter
 from numba import jit, njit
