@@ -22,10 +22,10 @@ with open("requirements.txt") as requires_file:
 setup(
     name = 'starcluster',
     use_scm_version=True,
-    description = 'Serach for star clusters using DPGMM',
+    description = 'Search for star clusters using DPGMM',
     author = 'Daniele Sanfratello, Stefano Rinaldi, Walter Del Pozzo',
     author_email = 'd.sanfratello@studenti.unipi.it, stefano.rinaldi@phd.unipi.it, walter.delpozzo@unipi.it',
-    url = 'https://github.com/d-sanfratello/solarsystem',
+    url = 'https://github.com/d-sanfratello/starcluster',
     python_requires = '>=3.7',
     packages = ['starcluster'],
     install_requires=requirements,
