@@ -296,7 +296,7 @@ class StarClusters:
         assignments = np.array(self.assignments).T
         np.savetxt(self.output_assignments, assignments)
         
-        plot_clusters(assignments, self.output_skymaps)
+        plot_clusters(self.stars, assignments, self.output_skymaps)
         
         fig, ax = plt.add_subplot()
         ax.plot(np.arange(1,len(self.n_clusters)+1), self.n_clusters, ls = '--', marker = ',', linewidth = 0.5)
@@ -336,6 +336,8 @@ class StarClusters:
                                 - event id: name to be given to the data set
                                 - cone volume: uniform prior on background stars position
                                 - inital assignment: initial guess for cluster assignments (optional - if it does not apply, use None)
+        Returns:
+            :tuple: mean and variance hyperpriors
         """
         
         # Unpack arguments
@@ -365,4 +367,5 @@ class StarClusters:
         self.make_folders()
         self.run_sampling()
         self.postprocess()
-        return
+        
+        return (self.L, self.k, self.nu, self.mu)
