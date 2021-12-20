@@ -1,41 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-import re
-import pickle
 
-from mpl_toolkits.mplot3d import Axes3D
-from corner import corner
-
-from collections import namedtuple, Counter
-
-from numpy import random
-from numpy.linalg import det, inv
-
-from scipy import stats
-from scipy.stats import entropy, gamma
-from scipy.stats import multivariate_t as student_t
-from scipy.stats import multivariate_normal as mn
-from scipy.spatial.distance import jensenshannon as js
-from scipy.special import logsumexp, betaln, gammaln, erfinv
-from scipy.interpolate import RegularGridInterpolator
-from scipy.integrate import nquad
-from scipy.linalg import det
-
-from sampler_component_pars import sample_point, MH_single_event
-import itertools
-
-from time import perf_counter
+from scipy.special import gammaln
 
 import ray
-from ray.util import ActorPool
-from ray.util.multiprocessing import Pool
-
+from collections import namedtuple, Counter
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 import ctypes
-
-from utils import integrand, compute_norm_const, log_norm, scalar_log_norm, make_sym_matrix, cartesian_to_celestial
 
 """
 Implemented as in https://dp.tdhopper.com/collapsed-gibbs/
@@ -73,35 +45,8 @@ def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     C = dim/2. * np.log(df * np.pi)
     D = 0.5 * logdet
     E = -x * np.log(1 + (1./df) * maha)
-
-    return A - B - C - D + E
-
-# natural sorting.
-# list.sort(key = natural_keys)
-
-def sort_matrix(a, axis = -1):
-    '''
-    Matrix sorting algorithm
-    '''
-    mat = np.array([[m, f] for m, f in zip(a[0], a[1])])
-    keys = np.array([x for x in mat[:,axis]])
-    sorted_keys = np.copy(keys)
-    sorted_keys = np.sort(sorted_keys)
-    indexes = [np.where(el == keys)[0][0] for el in sorted_keys]
-    sorted_mat = np.array([mat[i] for i in indexes])
-    return sorted_mat[:,0], sorted_mat[:,1]
     
-
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    '''
-    alist.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    (See Toothy's implementation in the comments)
-    '''
-    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+    return A - B - C - D + E
 
 @ray.remote
 class StarClusters:
@@ -146,8 +91,6 @@ class StarClusters:
             else:
                 print('sigma_max has the wrong number of dimensions ({0}), allowed 1, 2 or 6.'.format(len_sigma_max))
                 exit()
-        
-
         # DP parameters
         self.alpha0 = alpha0
         # Student-t parameters
@@ -159,7 +102,6 @@ class StarClusters:
         # Output
         self.output_folder = output_folder
         self.verbose = verbose
-    
         
     def initial_state(self):
         '''
@@ -169,6 +111,8 @@ class StarClusters:
             assign = self.initial_assign
         else:
             assign = np.array([int(a//(len(self.stars)/int(self.icn))) for a in range(len(self.stars))])
+            # Randomly assign some stars to background
+            assign[self.rdstate.choice(np.arange(len(assign)), size = len(assign)//2)] = -1
         
         cluster_ids = list(set(assign))
         state = {
@@ -220,7 +164,11 @@ class StarClusters:
         t_df    = nu_n - self.dim + 1
         t_shape = L_n*(k_n+1)/(k_n*t_df)
         # Compute logLikelihood
-        logL = my_student_t(df = t_df, t = np.atleast_2d(x), mu = mu_n, sigma = t_shape, dim = self.dim, s2max = self.sigma_max)
+        if cluster_id == -1:
+            # FIXME: p(x,y,z) = cnst for background
+            logL = my_student_t(df = t_df, t = np.atleast_2d(x[:, 3:]), mu = mu_n[3:], sigma = t_shape[3:, 3:], dim = self.dim//2, s2max = np.inf) + self.log_volume
+        else:
+            logL = my_student_t(df = t_df, t = np.atleast_2d(x), mu = mu_n, sigma = t_shape, dim = self.dim, s2max = self.sigma_max)
         return logL
 
     def add_datapoint_to_suffstats(self, x, ss):
@@ -228,7 +176,6 @@ class StarClusters:
         mean = (ss.mean*(ss.N)+x)/(ss.N+1)
         cov  = (ss.N*(ss.cov + np.matmul(ss.mean.T, ss.mean)) + np.matmul(x.T, x))/(ss.N+1) - np.matmul(mean.T, mean)
         return self.SuffStat(mean, cov, ss.N+1)
-
 
     def remove_datapoint_from_suffstats(self, x, ss):
         x = np.atleast_2d(x)
@@ -313,7 +260,6 @@ class StarClusters:
         """
         Collapsed Gibbs sampler for Dirichlet Process Gaussian Mixture Model
         """
-        # alpha sampling
         self.state['alpha_'] = self.update_alpha()
         self.alpha_samples.append(self.state['alpha_'])
         pairs = zip(self.state['data_'], selfstate['assignment'])
@@ -400,6 +346,8 @@ class StarClusters:
         self.stars          = stars
         self.initial_assign = initial_assign
         self.e_ID           = event_id
+        # FIXME: p(x,y,z) = cnst for background
+        self.log_volume     = np.log(cone_volume)
 
         if self.sigma_max_from_data:
             self.sigma_max = np.std(self.stars, axis = 0)/2.
