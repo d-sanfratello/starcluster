@@ -9,6 +9,8 @@ from numba import jit, njit
 from numba.extending import get_cython_function_address
 import ctypes
 
+from starcluster.postprocess import plot_clusters
+
 """
 Implemented as in https://dp.tdhopper.com/collapsed-gibbs/
 """
