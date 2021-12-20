@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 from scipy.special import gammaln
 
@@ -55,7 +56,7 @@ class StarClusters:
 
     def __init__(self, burnin,
                        n_draws,
-                       step,
+                       n_steps,
                        alpha0 = 1,
                        nu = 3,
                        k = 1/4.,
@@ -86,9 +87,9 @@ class StarClusters:
             len_sigma_max = len(sigma_max)
             if len_sigma_max == 1:
                 self.sigma_max = np.ones(self.dim)*sigma_max
-            else if len_sigma_max == 2:
+            elif len_sigma_max == 2:
                 self.sigma_max = np.concatenate((np.ones(self.dim//2)*sigma_max[0], np.ones(self.dim//2)*sigma_max[1]))
-            else if len_sigma_max == 6:
+            elif len_sigma_max == 6:
                 self.sigma_max = np.array(sigma_max)
             else:
                 print('sigma_max has the wrong number of dimensions ({0}), allowed 1, 2 or 6.'.format(len_sigma_max))
@@ -213,14 +214,14 @@ class StarClusters:
             return np.log(self.state['suffstats'][cluster_id].N)
 
     def create_cluster(self):
-        state["num_clusters_"] += 1
+        self.state["num_clusters_"] += 1
         cluster_id = max(self.state['suffstats'].keys()) + 1
         self.state['suffstats'][cluster_id] = self.SuffStat(np.atleast_2d(0),np.identity(self.dim)*0,0)
         self.state['cluster_ids_'].append(cluster_id)
         return cluster_id
 
     def destroy_cluster(self, cluster_id):
-        state["num_clusters_"] -= 1
+        self.state["num_clusters_"] -= 1
         del self.state['suffstats'][cluster_id]
         self.state['cluster_ids_'].remove(cluster_id)
         
@@ -264,7 +265,7 @@ class StarClusters:
         """
         self.state['alpha_'] = self.update_alpha()
         self.alpha_samples.append(self.state['alpha_'])
-        pairs = zip(self.state['data_'], selfstate['assignment'])
+        pairs = zip(self.state['data_'], self.state['assignment'])
         for data_id, (datapoint, cid) in enumerate(pairs):
             self.state['suffstats'][cid] = self.remove_datapoint_from_suffstats(datapoint, self.state['suffstats'][cid])
             self.prune_clusters()
@@ -355,7 +356,7 @@ class StarClusters:
             self.sigma_max = np.std(self.stars, axis = 0)/2.
         
         self.mu = np.atleast_2d(np.mean(self.stars, axis = 0))
-        self.L  = self.a*(sigma_max/2.)**2*np.identity(self.dim)
+        self.L  = self.a*(self.sigma_max/2.)**2*np.identity(self.dim)
         
         self.assignments = []
         self.alpha_samples = []
