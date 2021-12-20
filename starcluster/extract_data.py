@@ -36,8 +36,9 @@ class Data:
         self.path = Path(path)
         self.is_cartesian = is_cartesian
 
-        self.__names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
-        self.__dtype = np.dtype([('x', float),
+        self.__names = ['source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz']
+        self.__dtype = np.dtype([('source_id', np.int64),
+                                 ('x', float),
                                  ('y', float),
                                  ('z', float),
                                  ('vx', float),
@@ -53,7 +54,7 @@ class Data:
         returns a structured array. The file must be formatted with six
         columns containing the x, y and z coordinates and vx, vy and vz
         velocities. Each row corresponds to a star. The structured array has
-        labels 'x', 'y', 'z', 'vx', 'vy', 'vz'.
+        labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz'.
 
         If `Data.is_cartesian` is False, this method reads the file as a gaia
         dataset, it creates an `astropy.coordinates.SkyCoord` object with
@@ -63,7 +64,9 @@ class Data:
         to choose good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01
         document. It must, also, contain the column 'ref_epoch', as it is
         used to convert to galactic coordinates. Any row containing missing
-        data is deleted before conversion into galactic cartesian coordinates.
+        data is deleted before conversion into galactic cartesian
+        coordinates. Finally, it must contain the `source_id` column as it is
+        used to identify stars.
 
         Parameters
         ----------
@@ -82,7 +85,8 @@ class Data:
         -------
         Numpy structured array:
             If `Data.is_cartesian` is True, it returns a numpy structured
-            array with fields 'x', 'y', 'z', 'vx', 'vy' and 'vz' containing
+            array with fields 'source_id', 'x', 'y', 'z', 'vx', 'vy' and 'vz'
+            containing
             the galactic cartesian coordinates for each star.
         """
         if self.is_cartesian:
@@ -107,7 +111,7 @@ class Data:
                              filling_values=np.nan)
 
         # Selecting data based on missing parameters
-        astrometry_cols = ['ra', 'dec', 'parallax',
+        astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
                            'pmra', 'pmdec', 'radial_velocity',
                            'ruwe', 'ref_epoch']
         for col in astrometry_cols:
@@ -129,7 +133,7 @@ class Data:
 
         np.savetxt(outpath,
                    data,
-                   header='x,y,z,vx,vy,vz',
+                   header='source_id,x,y,z,vx,vy,vz',
                    delimiter=',')
 
     def __eq_to_cartesian(self, data):
@@ -150,6 +154,7 @@ class Data:
         coords_galactic = coords.transform_to('galactic')
 
         data_cart = np.zeros(len(data), dtype=self.__dtype)
+        data_cart['source_id'] = data['source_id']
         data_cart['x'] = coords_galactic.cartesian.x.value
         data_cart['y'] = coords_galactic.cartesian.y.value
         data_cart['z'] = coords_galactic.cartesian.z.value
