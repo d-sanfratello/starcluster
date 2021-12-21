@@ -2,13 +2,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-import ray
 from collections import namedtuple, Counter
 
 from scipy.special import gammaln
 
 from starcluster.postprocess import plot_clusters
 
+from numba import jit, njit
+from numba.extending import get_cython_function_address
+import ctypes
+
+"""
+Implemented as in https://dp.tdhopper.com/collapsed-gibbs/
+"""
+
+_PTR = ctypes.POINTER
+_dble = ctypes.c_double
+_ptr_dble = _PTR(_dble)
+
+addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
+functype = ctypes.CFUNCTYPE(_dble, _dble)
+gammaln_float64 = functype(addr)
+
+@njit
+def numba_gammaln(x):
+  return gammaln_float64(x)
+  
+@jit
 def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     """
     http://gregorygundersen.com/blog/2020/01/20/multivariate-t/
@@ -22,15 +42,15 @@ def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     maha       = np.square(np.dot(dev, U)).sum(axis=-1)
 
     x = 0.5 * (df + dim)
-    A = gammaln(x)
-    B = gammaln(0.5 * df)
+    A = numba_gammaln(x)
+    B = numba_gammaln(0.5 * df)
     C = dim/2. * np.log(df * np.pi)
     D = 0.5 * logdet
     E = -x * np.log(1 + (1./df) * maha)
     
     return A - B - C - D + E
 
-@ray.remote
+#@ray.remote
 class StarClusters:
 
     def __init__(self, burnin,
@@ -91,15 +111,15 @@ class StarClusters:
         if self.initial_assign is not None:
             assign = self.initial_assign
         else:
-            assign = np.array([int(a//(len(self.stars)/int(self.icn))) for a in range(len(self.stars))])
+            assign = np.zeros(len(self.stars), dtype = int)#np.array([int(a//(len(self.stars)/int(self.icn))) for a in range(len(self.stars))])
             # Randomly assign some stars to background
-            assign[self.rdstate.choice(np.arange(len(assign)), size = len(assign)//2)] = -1
+            assign[self.rdstate.choice(np.arange(len(assign)), size = len(assign)//self.icn)] = 0
         
         cluster_ids = list(set(assign))
         state = {
             'cluster_ids_': cluster_ids,
             'data_': self.stars,
-            'num_clusters_': int(self.icn),
+            'num_clusters_': len(cluster_ids),
             'alpha_': self.alpha0,
             'Ntot': len(self.stars),
             'hyperparameters_': {
@@ -145,7 +165,7 @@ class StarClusters:
         t_df    = nu_n - self.dim + 1
         t_shape = L_n*(k_n+1)/(k_n*t_df)
         # Compute logLikelihood
-        if cluster_id == -1:
+        if cluster_id == 0:
             # FIXME: p(x,y,z) = cnst for background
             logL = my_student_t(df = t_df, t = np.atleast_2d(x[3:]), mu = mu_n[:,3:], sigma = t_shape[3:, 3:], dim = self.dim//2, s2max = np.inf) - self.log_volume
         else:
@@ -231,8 +251,8 @@ class StarClusters:
         for _ in range(thinning):
             a_new = a_old + self.rdstate.uniform(-1,1)*0.5
             if a_new > 0:
-                logP_old = gammaln(a_old) - gammaln(a_old + n) + K * np.log(a_old) - 1./a_old
-                logP_new = gammaln(a_new) - gammaln(a_new + n) + K * np.log(a_new) - 1./a_new
+                logP_old = numba_gammaln(a_old) - numba_gammaln(a_old + n) + K * np.log(a_old) - 1./a_old
+                logP_new = numba_gammaln(a_new) - numba_gammaln(a_new + n) + K * np.log(a_new) - 1./a_new
                 if logP_new - logP_old > np.log(self.rdstate.uniform()):
                     a_old = a_new
         return a_old
