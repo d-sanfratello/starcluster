@@ -73,17 +73,19 @@ def plot_clusters(stars, assignments, output_folder):
     cluster_labels   = set(clusters)
     cluster_labels.discard(-1)
     
-    fig, ax = plt.subplots(projection = '3d')
+    fig = plt.figure()
+    ax = fig.add_subplot(projection = '3d')
     c = ax.scatter(stars[:,0], stars[:,1], stars[:,2], c = p_bkg, cmap = 'coolwarm', marker = '.', s = 3)
     fig.colorbar(c, label = '$p_{bkg}$')
-    fig.savefig(Path(output_folder, 'p_bkg.pdf', bbox_inches = 'tight')
+    fig.savefig(Path(output_folder, 'p_bkg.pdf'), bbox_inches = 'tight')
 
-    fig, ax = plt.subplots(projection = '3d')
-    cmap = plt.get_cmap('gist_rainbow', len(cluster_labels))
-    for i, lab in enumerate(cluster_labels):
-        #FIXME: check c = lab
-        c = ax.scatter(stars[np.where(clusters == lab),0], stars[np.where(clusters == lab),1], stars[np.where(clusters == lab),2], c = lab, cmap = cmap, marker = '.', s = 3)
-    pdf.colorbar(c, label = 'Cluster labels')
-    fig.savefig(Path(output_folder, 'clusters.pdf', bbox_inches = 'tight')
+#    fig = plt.figure()
+#    ax = fig.add_subplot(projection = '3d')
+#    cmap = plt.get_cmap('gist_rainbow', len(cluster_labels))
+#    for i, lab in enumerate(cluster_labels):
+#        #FIXME: check c = lab
+#        c = ax.scatter(stars[np.where(clusters == lab),0], stars[np.where(clusters == lab),1], stars[np.where(clusters == lab),2], c = lab, cmap = cmap, marker = '.', s = 3)
+#    fig.colorbar(c, label = 'Cluster labels')
+#    fig.savefig(Path(output_folder, 'clusters.pdf'), bbox_inches = 'tight')
     
     return

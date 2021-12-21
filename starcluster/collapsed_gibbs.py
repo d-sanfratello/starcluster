@@ -4,30 +4,11 @@ from pathlib import Path
 
 import ray
 from collections import namedtuple, Counter
-from numba import jit, njit
-from numba.extending import get_cython_function_address
-import ctypes
+
+from scipy.special import gammaln
 
 from starcluster.postprocess import plot_clusters
 
-"""
-Implemented as in https://dp.tdhopper.com/collapsed-gibbs/
-"""
-
-_PTR = ctypes.POINTER
-_dble = ctypes.c_double
-_ptr_dble = _PTR(_dble)
-
-addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
-functype = ctypes.CFUNCTYPE(_dble, _dble)
-gammaln_float64 = functype(addr)
-
-@njit
-def numba_gammaln(x):
-  return gammaln_float64(x)
-
-
-@jit
 def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     """
     http://gregorygundersen.com/blog/2020/01/20/multivariate-t/
@@ -41,8 +22,8 @@ def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     maha       = np.square(np.dot(dev, U)).sum(axis=-1)
 
     x = 0.5 * (df + dim)
-    A = numba_gammaln(x)
-    B = numba_gammaln(0.5 * df)
+    A = gammaln(x)
+    B = gammaln(0.5 * df)
     C = dim/2. * np.log(df * np.pi)
     D = 0.5 * logdet
     E = -x * np.log(1 + (1./df) * maha)
@@ -61,7 +42,6 @@ class StarClusters:
                        output_folder = './',
                        verbose = True,
                        initial_cluster_number = 5.,
-                       transformed = False,
                        sigma_max = None,
                        initial_assign = None,
                        rdstate = None,
@@ -158,7 +138,7 @@ class StarClusters:
         N = ss.N
         # Update hyperparameters
         k_n  = self.state['hyperparameters_']["k"] + N
-        mu_n = np.atleast_2d((self.state['hyperparameters_']["mu"]*self.state['hyperparameters_']["k"] + N*mean)/k_n)
+        mu_n = (self.state['hyperparameters_']["mu"]*self.state['hyperparameters_']["k"] + N*mean)/k_n
         nu_n = self.state['hyperparameters_']["nu"] + N
         L_n  = self.state['hyperparameters_']["L"]*self.state['hyperparameters_']["k"] + S*N + self.state['hyperparameters_']["k"]*N*np.matmul((mean - self.state['hyperparameters_']["mu"]).T, (mean - self.state['hyperparameters_']["mu"]))/k_n
         # Update t-parameters
@@ -167,10 +147,10 @@ class StarClusters:
         # Compute logLikelihood
         if cluster_id == -1:
             # FIXME: p(x,y,z) = cnst for background
-            logL = my_student_t(df = t_df, t = np.atleast_2d(x[:, 3:]), mu = mu_n[3:], sigma = t_shape[3:, 3:], dim = self.dim//2, s2max = np.inf) + self.log_volume
+            logL = my_student_t(df = t_df, t = np.atleast_2d(x[3:]), mu = mu_n[:,3:], sigma = t_shape[3:, 3:], dim = self.dim//2, s2max = np.inf) - self.log_volume
         else:
             logL = my_student_t(df = t_df, t = np.atleast_2d(x), mu = mu_n, sigma = t_shape, dim = self.dim, s2max = self.sigma_max)
-        return logL
+        return logL[0]
 
     def add_datapoint_to_suffstats(self, x, ss):
         x = np.atleast_2d(x)
@@ -251,13 +231,13 @@ class StarClusters:
         for _ in range(thinning):
             a_new = a_old + self.rdstate.uniform(-1,1)*0.5
             if a_new > 0:
-                logP_old = numba_gammaln(a_old) - numba_gammaln(a_old + n) + K * np.log(a_old) - 1./a_old
-                logP_new = numba_gammaln(a_new) - numba_gammaln(a_new + n) + K * np.log(a_new) - 1./a_new
+                logP_old = gammaln(a_old) - gammaln(a_old + n) + K * np.log(a_old) - 1./a_old
+                logP_new = gammaln(a_new) - gammaln(a_new + n) + K * np.log(a_new) - 1./a_new
                 if logP_new - logP_old > np.log(self.rdstate.uniform()):
                     a_old = a_new
         return a_old
 
-    def gibbs_step(self, state):
+    def gibbs_step(self):
         """
         Collapsed Gibbs sampler for Dirichlet Process Gaussian Mixture Model
         """
@@ -284,7 +264,7 @@ class StarClusters:
         for i in range(self.n_draws):
             if self.verbose:
                 print('\rSAMPLING: {0}/{1}'.format(i+1, self.n_draws), end = '')
-            for _ in range(self.step):
+            for _ in range(self.n_steps):
                 self.gibbs_step()
             self.assignments.append(np.array(self.state['assignment']))
         if self.verbose:
@@ -294,22 +274,22 @@ class StarClusters:
     def postprocess(self):
     
         assignments = np.array(self.assignments).T
-        np.savetxt(self.output_assignments, assignments)
+        np.savetxt(Path(self.output_assignments, 'assignments.txt'), assignments)
         
         plot_clusters(self.stars, assignments, self.output_skymaps)
         
-        fig, ax = plt.add_subplot()
+        fig, ax = plt.subplots()
         ax.plot(np.arange(1,len(self.n_clusters)+1), self.n_clusters, ls = '--', marker = ',', linewidth = 0.5)
-        fig.savefig(self.output_n_clusters+'n_clusters_{0}.pdf'.format(self.e_ID), bbox_inches='tight')
+        fig.savefig(Path(self.output_n_clusters, 'n_clusters_{0}.pdf'.format(self.e_ID)), bbox_inches='tight')
         
-        fig, ax = plt.add_subplot()
+        fig, ax = plt.subplots()
         ax.hist(self.alpha_samples, bins = int(np.sqrt(len(self.alpha_samples))), histtype = 'step', density = True)
-        fig.savefig(self.output_alpha+'/alpha_{0}.pdf'.format(self.e_ID), bbox_inches='tight')
+        fig.savefig(Path(self.output_alpha, 'alpha_{0}.pdf'.format(self.e_ID)), bbox_inches='tight')
     
     def make_folders(self):
     
         self.output_events = Path(self.output_folder, 'reconstructed_events')
-        dirs       = ['n_clusters', 'skymaps', 'alpha', 'assignments']
+        dirs       = ['n_clusters', 'assignments', 'alpha', 'skymaps']
         attr_names = ['output_n_clusters', 'output_assignments', 'output_alpha', 'output_skymaps']
         
         if not self.output_events.exists():
@@ -356,7 +336,7 @@ class StarClusters:
             self.sigma_max = np.std(self.stars, axis = 0)/2.
         
         self.mu = np.atleast_2d(np.mean(self.stars, axis = 0))
-        self.L  = self.a*(self.sigma_max/2.)**2*np.identity(self.dim)
+        self.L  = self.k*(self.sigma_max/2.)**2*np.identity(self.dim)
         
         self.assignments = []
         self.alpha_samples = []
