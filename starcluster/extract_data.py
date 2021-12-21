@@ -136,30 +136,41 @@ class Data:
                    header='source_id,x,y,z,vx,vy,vz',
                    delimiter=',')
 
-    def __eq_to_cartesian(self, data):
-        parallax = data['parallax'] * u.mas
-        distance = parallax.to(u.pc, equivalencies=u.parallax())
+    def __eq_to_cartesian(self, data, simple=True):
+        if simple:
+            parallax = data['parallax'] * u.mas
+            distance = parallax.to(u.pc, equivalencies=u.parallax())
 
-        epochs = Time(data['ref_epoch'], format='jyear')
+            epochs = Time(data['ref_epoch'], format='jyear')
 
-        coords = SkyCoord(frame='icrs',
-                          equinox=epochs,
-                          ra=data['ra']*u.deg,
-                          dec=data['dec']*u.deg,
-                          pm_ra_cosdec=data['pmra']*u.mas/u.year,
-                          pm_dec=data['pmdec']*u.mas/u.year,
-                          distance=distance,
-                          radial_velocity=data['radial_velocity']*u.km/u.s)
+            coords = SkyCoord(frame='icrs',
+                              equinox=epochs,
+                              ra=data['ra']*u.deg,
+                              dec=data['dec']*u.deg,
+                              pm_ra_cosdec=data['pmra']*u.mas/u.year,
+                              pm_dec=data['pmdec']*u.mas/u.year,
+                              distance=distance,
+                              radial_velocity=data['radial_velocity']*u.km/u.s)
 
-        coords_galactic = coords.transform_to('galactic')
+            coords_galactic = coords.transform_to('galactic')
 
-        data_cart = np.zeros(len(data), dtype=self.__dtype)
-        data_cart['source_id'] = data['source_id']
-        data_cart['x'] = coords_galactic.cartesian.x.value
-        data_cart['y'] = coords_galactic.cartesian.y.value
-        data_cart['z'] = coords_galactic.cartesian.z.value
-        data_cart['vx'] = coords_galactic.velocity.d_x.value
-        data_cart['vy'] = coords_galactic.velocity.d_y.value
-        data_cart['vz'] = coords_galactic.velocity.d_z.value
+            data_cart = np.zeros(len(data), dtype=self.__dtype)
+            data_cart['source_id'] = data['source_id']
+            data_cart['x'] = coords_galactic.cartesian.x.value
+            data_cart['y'] = coords_galactic.cartesian.y.value
+            data_cart['z'] = coords_galactic.cartesian.z.value
+            data_cart['vx'] = coords_galactic.velocity.d_x.value
+            data_cart['vy'] = coords_galactic.velocity.d_y.value
+            data_cart['vz'] = coords_galactic.velocity.d_z.value
+        else:
+            # FIXME: Complete with MCMC integration for galactic coordinates
+            #  and conversion into cartesian galactic coordinates. See notes
+            #  at pages a (for covariance matrix shape), e.2 (for (RA,
+            #  DEC) as functions of (l, b), f (for posterior distribution
+            #  over galactic spherical coordinates) and g (for (pmRA, pmDEC)
+            #  as functions of (l, b, pml, pmb).
+            for s in range(len(data['parallax'])):
+
+                sigma = np.array([[]])
 
         return data_cart
