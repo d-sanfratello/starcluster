@@ -1,3 +1,7 @@
+# Project-specific files
+gen_simulation.py
+simulations/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
