@@ -50,7 +50,6 @@ def my_student_t(df, t, mu, sigma, dim, s2max = np.inf):
     
     return A - B - C - D + E
 
-#@ray.remote
 class StarClusters:
 
     def __init__(self, burnin,
@@ -111,9 +110,9 @@ class StarClusters:
         if self.initial_assign is not None:
             assign = self.initial_assign
         else:
-            assign = np.zeros(len(self.stars), dtype = int)#np.array([int(a//(len(self.stars)/int(self.icn))) for a in range(len(self.stars))])
+            assign = np.array([int(a//(len(self.stars)/int(self.icn))) for a in range(len(self.stars))])
             # Randomly assign some stars to background
-            assign[self.rdstate.choice(np.arange(len(assign)), size = len(assign)//self.icn)] = 0
+            assign[self.rdstate.choice(np.arange(len(assign)), size = len(assign)//(2*self.icn))] = 0
         
         cluster_ids = list(set(assign))
         state = {
@@ -262,7 +261,6 @@ class StarClusters:
         Collapsed Gibbs sampler for Dirichlet Process Gaussian Mixture Model
         """
         self.state['alpha_'] = self.update_alpha()
-        self.alpha_samples.append(self.state['alpha_'])
         pairs = zip(self.state['data_'], self.state['assignment'])
         for data_id, (datapoint, cid) in enumerate(pairs):
             self.state['suffstats'][cid] = self.remove_datapoint_from_suffstats(datapoint, self.state['suffstats'][cid])
@@ -270,8 +268,11 @@ class StarClusters:
             cid = self.sample_assignment(data_id)
             self.state['assignment'][data_id] = cid
             self.state['suffstats'][cid] = self.add_datapoint_to_suffstats(self.state['data_'][data_id], self.state['suffstats'][cid])
-        self.n_clusters.append(len(self.state['cluster_ids_']))
 
+    def count_clusters(self):
+        ids = np.array(self.state['assignment'])
+        cnt = Counter(ids)
+        return len(set([k for k in ids if cnt[k] > 1])) - 1
     
     def run_sampling(self):
         self.initial_state()
@@ -287,6 +288,8 @@ class StarClusters:
             for _ in range(self.n_steps):
                 self.gibbs_step()
             self.assignments.append(np.array(self.state['assignment']))
+            self.n_clusters.append(self.count_clusters())
+            self.alpha_samples.append(self.state['alpha_'])
         if self.verbose:
             print('\n', end = '')
         return
@@ -361,7 +364,7 @@ class StarClusters:
         self.assignments = []
         self.alpha_samples = []
         self.mixture_samples = []
-        self.n_clusters = [self.icn]
+        self.n_clusters = []
         
         # Run the analysis
         self.make_folders()
