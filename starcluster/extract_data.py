@@ -6,6 +6,9 @@ from astropy.time import Time
 from astropy import units as u
 from pathlib import Path
 
+# FIXME: do sampler
+from starcluster.sampler import Sampler
+
 
 class Data:
     def __init__(self, path, *, is_cartesian=False):
@@ -169,8 +172,160 @@ class Data:
             #  DEC) as functions of (l, b), f (for posterior distribution
             #  over galactic spherical coordinates) and g (for (pmRA, pmDEC)
             #  as functions of (l, b, pml, pmb).
-            for s in range(len(data['parallax'])):
+            source_id = []
+            x = []
+            y = []
+            z = []
+            vx = []
+            vy = []
+            vz = []
 
-                sigma = np.array([[]])
+            for s in range(len(data['parallax'])):
+                ra, dec, par, pmra, pmdec = data['ra'][s], \
+                                            data['dec'][s], \
+                                            data['parallax'][s], \
+                                            data['pmra'][s], \
+                                            data['pmdec'][s]
+
+                s_ra = data['ra_error'][s] / np.cos(np.deg2rad(dec))
+                s_dec = data['dec_error'][s]
+                s_par = data['parallax_error'][s]
+                s_pmra = data['prma_error'][s]
+                s_pmdec = data['pmdec_error'][s]
+                cov_ra_dec = data['ra_dec_corr'][s] * s_ra * s_dec
+                cov_ra_par = data['ra_parallax_corr'][s] * s_ra * s_par
+                cov_ra_pmra = data['ra_pmra_corr'][s] * s_ra * s_pmra
+                cov_ra_pmdec = data['ra_pmdec_coor'][s] * s_ra * s_pmdec
+                cov_dec_par = data['dec_parallax_corr'][s] * s_dec * s_par
+                cov_dec_pmra = data['dec_pmra_corr'][s] * s_dec * s_pmra
+                cov_dec_pmdec = data['dec_pmdec_corr'][s] * s_dec * s_pmdec
+                cov_par_pmra = data['parallax_pmra_corr'][s] * s_par * s_pmra
+                cov_par_pmdec = data['parallax_pmdec_corr'][s] * s_par * s_pmdec
+                cov_pmra_pmdec = data['pmra_pmdec_corr'][s] * s_pmra * s_pmdec
+
+                sigma = [[s_ra**2, cov_ra_dec, cov_ra_par, cov_ra_pmra, cov_ra_pmdec],
+                         [cov_ra_dec, s_dec**2, cov_dec_par, cov_dec_pmra, cov_dec_pmdec],
+                         [cov_ra_par, cov_dec_par, s_par**2, cov_par_pmra, cov_par_pmdec],
+                         [cov_ra_pmra, cov_dec_pmra, cov_par_pmra, s_pmra**2, cov_pmra_pmdec],
+                         [cov_ra_pmdec, cov_dec_pmdec, cov_par_pmdec, cov_pmra_pmdec, s_pmdec**2]]
+
+                sigma = np.array(sigma)
+
+                vrad = data['radial_velocity'][s]
+                s_vrad = data['radial_velocity_error'][s]
+
+                sampler = Sampler(ra, dec, pmra, pmdec, par, sigma,
+                                  vrad, s_vrad)
+                galactic = sampler.run()
+
+                cartesian = self.__gal_to_cartesian(galactic)
+
+                source_id.append(data['source_id'][s])
+                x.append(cartesian['x'])
+                y.append(cartesian['y'])
+                z.append(cartesian['z'])
+                vx.append(cartesian['vx'])
+                vy.append(cartesian['vy'])
+                vz.append(cartesian['vz'])
+
+            data_cart = np.zeros(len(data), dtype=self.__dtype)
+            data_cart['source_id'] = source_id
+            data_cart['x'] = x
+            data_cart['y'] = y
+            data_cart['z'] = z
+            data_cart['vx'] = vx
+            data_cart['vy'] = vy
+            data_cart['vz'] = vz
 
         return data_cart
+
+    def __gal_to_cartesian(self, gal):
+        x = np.cos(gal['b']) * np.cos(gal['l']) * gal['r']
+        y = np.cos(gal['b']) * np.sin(gal['l']) * gal['r']
+        z = np.sin(gal['b']) * gal['r']
+
+        # FIXME: Evaluate cartesian velocities (see how you did for for
+        #  equatorial cartesian coordinates)
+
+    def __dec(self, l, b):
+        b = np.deg2rad(b)
+        l = np.deg2rad(l)
+
+        sin_dec = np.sin(self.dec_G) * np.sin(b)
+        sin_dec += (np.cos(self.dec_G) * np.cos(b) * np.cos(self.theta - l))
+
+        return np.arcsin(sin_dec)
+
+    def __ra(self, l, b):
+        b = np.deg2rad(b)
+        l = np.deg2rad(l)
+
+        f1 = np.cos(b) * np.sin(self.theta - l)
+        f2 = np.cos(self.dec_G * np.sin(b))
+        f2 -= (np.sin(self.dec_G) * np.cos(b) * np.cos(self.theta - l))
+
+        return self.ra_G + np.arctan2(f1, f2)
+
+    def __pmdec(self, l, b, pml, pmb):
+        b = np.deg2rad(b)
+        l = np.deg2rad(l)
+
+        pmb_term = np.sin(self.dec_G) * np.cos(b)
+        pmb_term -= np.cos(self.dec_G) * np.sin(b) * np.cos(self.theta - l)
+        pmb_term *= pmb
+
+        pml_term = np.cos(self.dec_G) * np.sin(self.theta - l)
+        pml_term *= pml
+
+        return (pml_term + pmb_term) / (1 - self.__F(l, b)**2)
+
+    def __pmra(self, l, b, pml, pmb):
+        b = np.deg2rad(b)
+        l = np.deg2rad(l)
+
+        pmb_term = -np.sin(b)*np.sin(self.theta - l) * np.__H(l, b)
+        pmb_term -= self.__G(l, b) * (np.cos(self.dec_G) * np.cos(b) +
+                                      np.sin(self.dec_G) * np.sin(b) *
+                                      np.cos(self.theta - l))
+        pmb_term *= pmb
+
+        pml_term = self.__H(l, b) * (-np.cos(b) * np.cos(self.theta - l))
+        pml_term -= self.__G(l, b) * (-np.sin(self.dec_G) * np.cos(b) *
+                                      np.sin(self.theta - l))
+        pml_term *= pml
+
+        ra = (pml_term + pmb_term) / (self.__G(l, b)**2 + self.__H(l, b)**2)
+        return ra * np.cos(self.__dec(l, b))
+
+    def __F(self, l, b):
+        f = np.sin(self.dec_G) * np.sin(b)
+        f += np.cos(self.dec_G) * np.cos(b) * np.cos(self.theta - l)
+
+        return f
+
+    def __G(self, l, b):
+        return np.cos(b) * np.sin(self.theta - self.l)
+
+    def __H(self, l, b):
+        h = np.cos(self.dec_G) * np.sin(b)
+        h -= np.sin(self.dec_G) * np.cos(b) * np.cos(self.theta - l)
+
+        return h
+
+    def __rad2as(self, rad):
+        deg = rad * 180 / np.pi
+        arcsec = deg * 3600
+
+        return arcsec
+
+    @property
+    def dec_G(self):
+        return np.deg2rad(27.12825)
+
+    @property
+    def ra_G(self):
+        return np.deg2rad(192.85948)
+
+    @property
+    def theta(self):
+        return np.deg2rad(123.932)
