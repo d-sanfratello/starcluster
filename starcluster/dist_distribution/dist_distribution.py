@@ -69,16 +69,12 @@ class DistDistribution:
         job.run()
 
         post = job.posterior_samples.ravel()
-        samples = np.column_stack([post['r']])
-        fig = corner.corner(samples, labels=['E(B-V) [mag]', 'age [Myr]'],
-                            quantiles=[.05, .95],
-                            filename='./joint_test.pdf', show_titles=True,
-                            title_fmt='.3e',
-                            title_kwargs={'fontsize': 8},
-                            label_kwargs={'fontsize': 8},
-                            use_math_text=True)
-        fig.savefig('joint_test.pdf')
 
+        # FIXME: Can do three integrals: one for E[r], one for E[r^2] and one
+        #  for E[r^3], to be interpolated with mu and sigma of the parallax.
+        #  This allows for an interpolation of the skewness coefficient
+        #  mu-sigma dependent. Need to rework the above integral to make them
+        #  three.
 
     @property
     def nsteps(self):
