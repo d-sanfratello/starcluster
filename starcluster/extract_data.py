@@ -6,9 +6,6 @@ from astropy.time import Time
 from astropy import units as u
 from pathlib import Path
 
-# FIXME: do sampler
-from starcluster.sampler import Sampler
-
 
 class Data:
     astrometry_base_cols = ['source_id', 'ra', 'dec', 'parallax',
