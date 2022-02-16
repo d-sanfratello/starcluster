@@ -11,6 +11,24 @@ from starcluster.sampler import Sampler
 
 
 class Data:
+    astrometry_base_cols = ['source_id', 'ra', 'dec', 'parallax',
+                            'pmra', 'pmdec',
+                            'ruwe', 'ref_epoch',
+                            'parallax_error', 'parallax_over_error',
+                            'dr2_radial_velocity']
+    astrometry_full_cols = ['source_id', 'ra', 'dec', 'parallax',
+                            'pmra', 'pmdec', 'radial_velocity',
+                            'ruwe', 'ref_epoch',
+                            'ra_error', 'dec_error',
+                            'parallax_error', 'parallax_over_error',
+                            'pmra_error', 'pmdec_error', 'ra_dec_corr',
+                            'ra_parallax_corr', 'ra_pmra_corr',
+                            'ra_pmdec_corr', 'dec_parallax_corr',
+                            'dec_pmra_corr', 'dec_pmdec_corr',
+                            'parallax_pmra_corr', 'parallax_pmdec_corr',
+                            'pmra_pmdec_corr', 'dr2_radial_velocity',
+                            'dr2_radial_velocity_error']
+
     def __init__(self, path, *, is_cartesian=False):
         """
         Class to open an existing file containing astrometric data.
@@ -114,10 +132,7 @@ class Data:
                              filling_values=np.nan)
 
         # Selecting data based on missing parameters
-        astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
-                           'pmra', 'pmdec', 'radial_velocity',
-                           'ruwe', 'ref_epoch']
-        for col in astrometry_cols:
+        for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
@@ -139,103 +154,77 @@ class Data:
                    header='source_id,x,y,z,vx,vy,vz',
                    delimiter=',')
 
-    def __eq_to_cartesian(self, data, simple=True):
-        if simple:
-            parallax = data['parallax'] * u.mas
-            distance = parallax.to(u.pc, equivalencies=u.parallax())
+    def __eq_to_cartesian(self, data):
+        # FIXME: Complete with MCMC integration for galactic coordinates
+        #  and conversion into cartesian galactic coordinates. See notes
+        #  at pages a (for covariance matrix shape), e.2 (for (RA,
+        #  DEC) as functions of (l, b), f (for posterior distribution
+        #  over galactic spherical coordinates) and g (for (pmRA, pmDEC)
+        #  as functions of (l, b, pml, pmb).
+        source_id = []
+        x = []
+        y = []
+        z = []
+        vx = []
+        vy = []
+        vz = []
 
-            epochs = Time(data['ref_epoch'], format='jyear')
+        for s in range(data['source_id'].shape):
+            ra, dec, par, pmra, pmdec = data['ra'][s], \
+                                        data['dec'][s], \
+                                        data['parallax'][s], \
+                                        data['pmra'][s], \
+                                        data['pmdec'][s]
 
-            coords = SkyCoord(frame='icrs',
-                              equinox=epochs,
-                              ra=data['ra']*u.deg,
-                              dec=data['dec']*u.deg,
-                              pm_ra_cosdec=data['pmra']*u.mas/u.year,
-                              pm_dec=data['pmdec']*u.mas/u.year,
-                              distance=distance,
-                              radial_velocity=data['radial_velocity']*u.km/u.s)
+            s_ra = data['ra_error'][s] / np.cos(np.deg2rad(dec))
+            s_dec = data['dec_error'][s]
+            s_par = data['parallax_error'][s]
+            s_pmra = data['prma_error'][s]
+            s_pmdec = data['pmdec_error'][s]
+            cov_ra_dec = data['ra_dec_corr'][s] * s_ra * s_dec
+            cov_ra_par = data['ra_parallax_corr'][s] * s_ra * s_par
+            cov_ra_pmra = data['ra_pmra_corr'][s] * s_ra * s_pmra
+            cov_ra_pmdec = data['ra_pmdec_coor'][s] * s_ra * s_pmdec
+            cov_dec_par = data['dec_parallax_corr'][s] * s_dec * s_par
+            cov_dec_pmra = data['dec_pmra_corr'][s] * s_dec * s_pmra
+            cov_dec_pmdec = data['dec_pmdec_corr'][s] * s_dec * s_pmdec
+            cov_par_pmra = data['parallax_pmra_corr'][s] * s_par * s_pmra
+            cov_par_pmdec = data['parallax_pmdec_corr'][s] * s_par * s_pmdec
+            cov_pmra_pmdec = data['pmra_pmdec_corr'][s] * s_pmra * s_pmdec
 
-            coords_galactic = coords.transform_to('galactic')
+            sigma = [[s_ra**2, cov_ra_dec, cov_ra_par, cov_ra_pmra, cov_ra_pmdec],
+                     [cov_ra_dec, s_dec**2, cov_dec_par, cov_dec_pmra, cov_dec_pmdec],
+                     [cov_ra_par, cov_dec_par, s_par**2, cov_par_pmra, cov_par_pmdec],
+                     [cov_ra_pmra, cov_dec_pmra, cov_par_pmra, s_pmra**2, cov_pmra_pmdec],
+                     [cov_ra_pmdec, cov_dec_pmdec, cov_par_pmdec, cov_pmra_pmdec, s_pmdec**2]]
 
-            data_cart = np.zeros(len(data), dtype=self.__dtype)
-            data_cart['source_id'] = data['source_id']
-            data_cart['x'] = coords_galactic.cartesian.x.value
-            data_cart['y'] = coords_galactic.cartesian.y.value
-            data_cart['z'] = coords_galactic.cartesian.z.value
-            data_cart['vx'] = coords_galactic.velocity.d_x.value
-            data_cart['vy'] = coords_galactic.velocity.d_y.value
-            data_cart['vz'] = coords_galactic.velocity.d_z.value
-        else:
-            # FIXME: Complete with MCMC integration for galactic coordinates
-            #  and conversion into cartesian galactic coordinates. See notes
-            #  at pages a (for covariance matrix shape), e.2 (for (RA,
-            #  DEC) as functions of (l, b), f (for posterior distribution
-            #  over galactic spherical coordinates) and g (for (pmRA, pmDEC)
-            #  as functions of (l, b, pml, pmb).
-            source_id = []
-            x = []
-            y = []
-            z = []
-            vx = []
-            vy = []
-            vz = []
+            sigma = np.array(sigma)
 
-            for s in range(len(data['parallax'])):
-                ra, dec, par, pmra, pmdec = data['ra'][s], \
-                                            data['dec'][s], \
-                                            data['parallax'][s], \
-                                            data['pmra'][s], \
-                                            data['pmdec'][s]
+            vrad = data['dr2_radial_velocity'][s]
+            s_vrad = data['dr2_radial_velocity_error'][s]
 
-                s_ra = data['ra_error'][s] / np.cos(np.deg2rad(dec))
-                s_dec = data['dec_error'][s]
-                s_par = data['parallax_error'][s]
-                s_pmra = data['prma_error'][s]
-                s_pmdec = data['pmdec_error'][s]
-                cov_ra_dec = data['ra_dec_corr'][s] * s_ra * s_dec
-                cov_ra_par = data['ra_parallax_corr'][s] * s_ra * s_par
-                cov_ra_pmra = data['ra_pmra_corr'][s] * s_ra * s_pmra
-                cov_ra_pmdec = data['ra_pmdec_coor'][s] * s_ra * s_pmdec
-                cov_dec_par = data['dec_parallax_corr'][s] * s_dec * s_par
-                cov_dec_pmra = data['dec_pmra_corr'][s] * s_dec * s_pmra
-                cov_dec_pmdec = data['dec_pmdec_corr'][s] * s_dec * s_pmdec
-                cov_par_pmra = data['parallax_pmra_corr'][s] * s_par * s_pmra
-                cov_par_pmdec = data['parallax_pmdec_corr'][s] * s_par * s_pmdec
-                cov_pmra_pmdec = data['pmra_pmdec_corr'][s] * s_pmra * s_pmdec
+            sampler = Sampler(ra, dec, pmra, pmdec, par, sigma,
+                              vrad, s_vrad)
+            galactic = sampler.run()
 
-                sigma = [[s_ra**2, cov_ra_dec, cov_ra_par, cov_ra_pmra, cov_ra_pmdec],
-                         [cov_ra_dec, s_dec**2, cov_dec_par, cov_dec_pmra, cov_dec_pmdec],
-                         [cov_ra_par, cov_dec_par, s_par**2, cov_par_pmra, cov_par_pmdec],
-                         [cov_ra_pmra, cov_dec_pmra, cov_par_pmra, s_pmra**2, cov_pmra_pmdec],
-                         [cov_ra_pmdec, cov_dec_pmdec, cov_par_pmdec, cov_pmra_pmdec, s_pmdec**2]]
+            cartesian = self.__gal_to_cartesian(galactic)
 
-                sigma = np.array(sigma)
+            source_id.append(data['source_id'][s])
+            x.append(cartesian['x'])
+            y.append(cartesian['y'])
+            z.append(cartesian['z'])
+            vx.append(cartesian['vx'])
+            vy.append(cartesian['vy'])
+            vz.append(cartesian['vz'])
 
-                vrad = data['radial_velocity'][s]
-                s_vrad = data['radial_velocity_error'][s]
-
-                sampler = Sampler(ra, dec, pmra, pmdec, par, sigma,
-                                  vrad, s_vrad)
-                galactic = sampler.run()
-
-                cartesian = self.__gal_to_cartesian(galactic)
-
-                source_id.append(data['source_id'][s])
-                x.append(cartesian['x'])
-                y.append(cartesian['y'])
-                z.append(cartesian['z'])
-                vx.append(cartesian['vx'])
-                vy.append(cartesian['vy'])
-                vz.append(cartesian['vz'])
-
-            data_cart = np.zeros(len(data), dtype=self.__dtype)
-            data_cart['source_id'] = source_id
-            data_cart['x'] = x
-            data_cart['y'] = y
-            data_cart['z'] = z
-            data_cart['vx'] = vx
-            data_cart['vy'] = vy
-            data_cart['vz'] = vz
+        data_cart = np.zeros(len(data), dtype=self.__dtype)
+        data_cart['source_id'] = source_id
+        data_cart['x'] = x
+        data_cart['y'] = y
+        data_cart['z'] = z
+        data_cart['vx'] = vx
+        data_cart['vy'] = vy
+        data_cart['vz'] = vz
 
         return data_cart
 
