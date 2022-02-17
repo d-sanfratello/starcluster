@@ -17,8 +17,10 @@ class ParallaxLimit:
         -------
         L(l):
             'float'. The upper distance limit of the distance from the edge
-            of the Galaxy in the direction of galactic longitude l.
+            of the Galaxy in the direction of galactic longitude l, expressed in
+            kpc.
         """
+        # FIXME: Complete docstring
         r_G2 = R_S_SAGA * R_S_SAGA
         R_G2 = R_GAL * R_GAL
 
