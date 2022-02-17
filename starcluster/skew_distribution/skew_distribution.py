@@ -50,7 +50,7 @@ class SkewDistribution:
         self.__interpolant = None
 
         try:
-            from .r_distr import NBINS
+            from .sk_distr import NBINS
             if NBINS != self.nbins:
                 raise FileNotFoundError
 
@@ -58,7 +58,7 @@ class SkewDistribution:
             self.__interpolate(self.nbins)
 
         finally:
-            from .r_distr import skewness
+            from .sk_distr import skewness
             self.__interpolant = skewness
 
     def __interpolate(self):
