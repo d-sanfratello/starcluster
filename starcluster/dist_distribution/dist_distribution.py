@@ -4,26 +4,29 @@ import os
 
 from cpnest import CPNest, model
 from pathlib import Path
+from scipy.stats import skew
 
 from .const import R_GAL
+from .const import PAR_MIN, PAR_MAX
+from .const import PAR_ERR_MIN, PAR_ERR_MAX
+from .const import GAL_LONG_MIN, GAL_LONG_MAX
 from .parallax_limit import parallax_limit
 
 
 class Distribution(model.Model):
     def __init__(self):
-        self.names = ['r', 'mean_par', 'rel_sigma_par', 'l']
-        self.bounds = [[0, R_GAL],
-                       [1e-6, 1],
-                       [1e-10, 0.5],
-                       [0, 2*np.pi]]
+        self.names = ['mean_par', 'sigma_par', 'l', 'r']
+        self.bounds = [[PAR_MIN, PAR_MAX],  # mas
+                       [PAR_ERR_MIN, PAR_ERR_MAX],  # mas
+                       [GAL_LONG_MIN, GAL_LONG_MAX],  # rad, galactic longitude
+                       [0, R_GAL]]  # kpc
 
     def log_likelihood(self, param):
         r = param['r']
         m = param['mean_par']
-        s = m * param['rel_sigma_par']
+        s = param['rel_sigma_par']
 
-        log_L = -2 * np.log(r)
-        log_L -= 1/(2*s**2) * (1/r - m)**2
+        log_L = -2 * np.log(r) - 1/(2 * s**2) * (1/r - m)**2
 
         return log_L
 
@@ -44,21 +47,21 @@ class Distribution(model.Model):
 
 
 class DistDistribution:
-    def __init__(self, nsteps=100):
-        self.__nsteps = nsteps
+    def __init__(self, nbins=100):
+        self.__nbins = nbins
 
         try:
-            from .r_distr import NSTEPS
-            if NSTEPS != self.nsteps:
+            from .r_distr import NBINS
+            if NBINS != self.nbins:
                 raise ImportError
 
         except ImportError:
-            self.__interpolate(self.nsteps)
+            self.__interpolate(self.nbins)
 
         finally:
-            from .r_distr import skew_eval
+            from .r_distr import skewness
 
-    def __interpolate(self, nsteps):
+    def __interpolate(self):
         joint_distribution = Distribution()
 
         job = CPNest(joint_distribution, verbose=0, nlive=1000,
@@ -70,6 +73,11 @@ class DistDistribution:
 
         post = job.posterior_samples.ravel()
 
+        hist, edges = np.histogramdd(sample=post,
+                                     bins=self.nbins)
+
+
+
         # FIXME: Can do three integrals: one for E[r], one for E[r^2] and one
         #  for E[r^3], to be interpolated with mu and sigma of the parallax.
         #  This allows for an interpolation of the skewness coefficient
@@ -77,6 +85,6 @@ class DistDistribution:
         #  three.
 
     @property
-    def nsteps(self):
-        return self.__nsteps
+    def nbins(self):
+        return self.__nbins
 
