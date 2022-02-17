@@ -11,7 +11,7 @@ from .const import SAMPLES_PATH
 from .parallax_limit import parallax_limit
 
 
-class Distribution(model.Model):
+class DistanceDistribution(model.Model):
     def __init__(self):
         self.names = ['mean_par', 'sigma_par', 'l', 'r']
         self.bounds = [[PAR_MIN, PAR_MAX],  # mas
@@ -29,7 +29,7 @@ class Distribution(model.Model):
         return log_L
 
     def log_prior(self, param):
-        log_p = super(Distribution, self).log_prior(param)
+        log_p = super(DistanceDistribution, self).log_prior(param)
 
         r = param['r']
         l = param['l']
@@ -62,7 +62,7 @@ class SkewDistribution:
             self.__interpolant = skewness
 
     def __interpolate(self):
-        joint_distribution = Distribution()
+        joint_distribution = DistanceDistribution()
 
         job = CPNest(joint_distribution, verbose=0, nlive=1000,
                      maxmcmc=1500, nnest=4,
