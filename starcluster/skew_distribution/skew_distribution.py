@@ -73,6 +73,10 @@ class SkewDistribution:
 
         post = job.posterior_samples.ravel()
 
+        # FIXME: Non sono sicuro sia meglio far l'istogramma così. Si perde
+        #  l'informazione sui sample in distanza, che invece mi
+        #  interesserebbe. Chissà se c'è un modo migliore per farlo.
+
         hist, edges = np.histogramdd(sample=post,
                                      bins=self.nbins)
 
