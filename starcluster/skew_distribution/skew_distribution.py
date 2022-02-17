@@ -76,7 +76,7 @@ class SkewDistribution:
         hist, edges = np.histogramdd(sample=post,
                                      bins=self.nbins)
 
-        skew_samples = [[[skew(hist[m, s, l], bias=False)
+        skew_samples = [[[skew(hist[m, s, l, :], bias=False)
                           for l in range(self.nbins)]
                          for s in range(self.nbins)]
                         for m in range(self.nbins)]
