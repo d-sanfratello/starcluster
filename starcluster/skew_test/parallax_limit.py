@@ -1,6 +1,6 @@
 import numpy as np
 
-from const import R_GAL, R_S_SAGA
+from .const import R_GAL, R_S_SAGA
 
 
 class ParallaxLimit:
