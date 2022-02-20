@@ -15,6 +15,6 @@ GAL_LONG_MIN = 0.  # rad
 GAL_LONG_MAX = 2 * pi  # rad
 
 SAMPLES_PATH = Path(os.getcwd()).joinpath(
-    './starcluster/skew_distribution/samples_data/skew_samples.csv')
+    './starcluster/skew_test/samples_data/skew_samples.csv')
 SAMPLES_BINS = Path(os.getcwd()).joinpath(
-    './starcluster/skew_distribution/samples_data/nbins.txt')
+    './starcluster/skew_test/samples_data/nbins.txt')
