@@ -1,9 +1,6 @@
 import numpy as np
 import os
 
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
-from astropy import units as u
 from pathlib import Path
 
 
@@ -120,7 +117,7 @@ class Data:
 
         return data
 
-    def __open_gaia(self, outpath=None, *, ruwe=None):
+    def __open_gaia(self, outpath=None, *, ruwe=None, parallax_over_error=None):
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
         data = np.genfromtxt(self.path,
@@ -129,7 +126,7 @@ class Data:
                              filling_values=np.nan)
 
         # Selecting data based on missing parameters
-        for col in self.astrometry_cols:
+        for col in self.astrometry_base_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
@@ -137,6 +134,11 @@ class Data:
         if ruwe is None:
             ruwe = np.inf
         data_good = data[data['ruwe'] <= ruwe]
+
+        if parallax_over_error is None:
+            parallax_over_error = 0.
+        data_good = data_good[data_good['parallax_over_error'] >=
+                              parallax_over_error]
 
         data = self.__eq_to_cartesian(data_good)
 
@@ -152,12 +154,12 @@ class Data:
                    delimiter=',')
 
     def __eq_to_cartesian(self, data):
-        # FIXME: Complete with MCMC integration for galactic coordinates
-        #  and conversion into cartesian galactic coordinates. See notes
-        #  at pages a (for covariance matrix shape), e.2 (for (RA,
-        #  DEC) as functions of (l, b), f (for posterior distribution
-        #  over galactic spherical coordinates) and g (for (pmRA, pmDEC)
-        #  as functions of (l, b, pml, pmb).
+        # FIXME: Complete with conversion to galactic coordinates. See notes
+        #  on from Gaia documentation for vectorial conversion of coordinates.
+        #  It may be useful to read also notes at pages a (for covariance
+        #  matrix shape), e.2 (for (RA, DEC) as functions of (l, b), f (for
+        #  posterior distribution over galactic spherical coordinates) and g
+        #  (for (pmRA, pmDEC) as functions of (l, b, pml, pmb).
         source_id = []
         x = []
         y = []
