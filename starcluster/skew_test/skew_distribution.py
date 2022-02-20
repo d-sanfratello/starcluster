@@ -1,14 +1,14 @@
 import numpy as np
 
-from cpnest import CPNest, model
+# from cpnest import CPNest, model
 from scipy.stats import skew
 
-from .const import R_GAL
-from .const import PAR_MIN, PAR_MAX
-from .const import PAR_ERR_MIN, PAR_ERR_MAX
-from .const import GAL_LONG_MIN, GAL_LONG_MAX
-from .const import SAMPLES_PATH
-from .parallax_limit import parallax_limit
+from const import R_GAL
+from const import PAR_MIN, PAR_MAX
+from const import PAR_ERR_MIN, PAR_ERR_MAX
+from const import GAL_LONG_MIN, GAL_LONG_MAX
+from const import SAMPLES_PATH
+from parallax_limit import parallax_limit
 
 
 class DistanceDistribution(model.Model):
