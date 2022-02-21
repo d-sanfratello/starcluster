@@ -8,9 +8,9 @@ from .const import PC2KM, YR2S
 
 class Data:
     astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
-                            'pmra', 'pmdec', 'dr2_radial_velocity'
-                            'ruwe', 'parallax_over_error',
-                            'ref_epoch']
+                       'pmra', 'pmdec', 'dr2_radial_velocity',
+                       'ruwe', 'parallax_over_error',
+                       'ref_epoch']
     astrometry_full_cols = ['source_id', 'ra', 'dec', 'parallax',
                             'pmra', 'pmdec', 'radial_velocity',
                             'ruwe', 'ref_epoch',
@@ -70,7 +70,9 @@ class Data:
                                     ('pmra', float),
                                     ('pmdec', float),
                                     ('dr2_radial_velocity', float),
-                                    ('ref_epoch', float)])
+                                    ('ruwe', float),
+                                    ('ref_epoch', float),
+                                    ('parallax_over_error', float)])
 
         self.__A_G_inv = np.array([
             [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
@@ -158,6 +160,15 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
+        new_data = np.zeros(data['source_id'].shape, dtype=self.__eq_dtype)
+        for name in new_data.dtype.names:
+            if name != 'source_id':
+                new_data[name] = data[name]
+            else:
+                new_data['source_id'] = data['source_id'].astype(np.int64)
+
+        data = new_data
+
         # Selecting data based on missing parameters
         for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
@@ -196,15 +207,8 @@ class Data:
         vz = []
         ref_epoch = []
 
-        for s in range(data['source_id'].shape):
-            ra, dec, par = data['ra'][s], data['dec'][s], data['parallax'][s]
-            pmra, pmdec, vrad = data['pmra'][s], data['pmdec'][s], \
-                data['dr2_radial_velocity'][s]
-
-            equatorial = np.array([(data['source_id'][s],
-                                   ra, dec, par, pmra, pmdec, vrad,
-                                   data['ref_epoch'][s])],
-                                  dtype=self.__eq_dtype)
+        for s in range(data['source_id'].shape[0]):
+            equatorial = data[:][s]
             galactic_cartesian = self.__eq_to_galactic(equatorial)
 
             source_id.append(data['source_id'][s])
