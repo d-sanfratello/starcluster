@@ -25,16 +25,15 @@ class Data:
                             'dr2_radial_velocity_error']
 
     def __init__(self, path, *, is_cartesian=False):
-        # FIXME: Check if documentation is up to date
         """
         Class to open an existing file containing astrometric data.
 
         If `is_cartesian` is True, this class will read a txt file containing
         data in galactic cartesian coordinates. If `is_cartesian` is False,
-        it reads data from a gaia csv file and uses astropy to convert gaia
-        data to galactic cartesian coordinates, gaia data must contain the
-        `ruwe` column, to select good quality data, as expressed in
-        GAIA-C3-TN-LU-LL-124-01 document.
+        it reads data from a Gaia csv file and uses the method from
+        Hobbs et al., 2021, Ch.4 to convert Gaia data to galactic cartesian
+        coordinates. Data from Gaia data must contain the `ruwe` column, to
+        select good quality data, and the `parallax_over_error` column.
 
         Data converted from a gaia csv file is then saved into a new file in
         galactic cartesian coordinates.
@@ -79,7 +78,6 @@ class Data:
             [-0.8676661490190047, -0.1980763734312015,  0.4559837761750669]])
 
     def read(self, outpath=None, *, ruwe=None, parallax_over_error=None):
-        # FIXME: Check if documentation is up to date
         """
         Method of the `Data` class to read the file whose path was defined in
         the `Data.path` attribute.
@@ -90,14 +88,14 @@ class Data:
         velocities. Each row corresponds to a star. The structured array has
         labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz' and 'ref_epoch'.
 
-        If `Data.is_cartesian` is False, this method reads the file as a gaia
-        dataset, it creates an `astropy.coordinates.SkyCoord` object with
-        right ascension, declination, parallax, proper motion and distances
-        for each source. Frame of reference is set as 'ICRS' and epoch given
-        from data. Gaia data must contain the 'ruwe' column, as it is used
-        to choose good quality data, as explained in the GAIA-C3-TN-LU-LL-124-01
-        document. It must, also, contain the column 'ref_epoch', as it is
-        used to convert to galactic coordinates. Any row containing missing
+        If `Data.is_cartesian` is False, this method reads the file as a Gaia
+        dataset, it creates a numpy structured array with right ascension,
+        declination, parallax, proper motion and distances for each source. Gaia
+        data must contain the `ruwe` column, as it is used to choose good
+        quality data. It must, also, contain the `ref_epoch` column and the
+        `parallax_over_error` column, which is used to select data with a
+        smaller parallax relative error, to keep symmetry in the distance
+        probability distribution. Any row containing missing
         data is deleted before conversion into galactic cartesian
         coordinates. Finally, it must contain the `source_id` column as it is
         used to identify stars.
@@ -115,15 +113,21 @@ class Data:
             information. If `ruwe` is None, the limit is set to np.inf,
             accepting all data.
         parallax_over_error:
+            The value of the parallax divided by its error. Its the inverse
+            of the relative error and is used to select data which has an
+            almost symmetrical probability distribution over distance,
+            so that 1 / parallax is a good approximation for the mode of the
+            posterior of the distance. If `parallax_over_error` is None,
+            the limit is set to 0, accepting alla data.
 
 
         Returns
         -------
         Numpy structured array:
             If `Data.is_cartesian` is True, it returns a numpy structured
-            array with fields 'source_id', 'x', 'y', 'z', 'vx', 'vy' and 'vz'
-            containing
-            the galactic cartesian coordinates for each star.
+            array with fields 'source_id', 'x', 'y', 'z', 'vx', 'vy',
+            'vz' and 'ref_epoch', containing the galactic cartesian coordinates
+            for each star.
         """
         if self.is_cartesian:
             return self.__open_cartesian()
@@ -176,12 +180,6 @@ class Data:
                    delimiter=',')
 
     def __eq_to_galcartesian(self, data):
-        # FIXME: Complete with conversion to galactic coordinates. See notes
-        #  on from Gaia documentation for vectorial conversion of coordinates.
-        #  It may be useful to read also notes at pages a (for covariance
-        #  matrix shape), e.2 (for (RA, DEC) as functions of (l, b), f (for
-        #  posterior distribution over galactic spherical coordinates) and g
-        #  (for (pmRA, pmDEC) as functions of (l, b, pml, pmb).
         source_id = []
         x = []
         y = []
