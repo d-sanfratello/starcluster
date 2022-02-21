@@ -55,24 +55,24 @@ class Data:
         self.__names = ['source_id',
                         'x', 'y', 'z', 'vx', 'vy', 'vz',
                         'ref_epoch']
-        self.__dtype = np.dtype([('source_id', np.int64),
-                                 ('x', float),
-                                 ('y', float),
-                                 ('z', float),
-                                 ('vx', float),
-                                 ('vy', float),
-                                 ('vz', float),
-                                 ('ref_epoch', float)])
-        self.__eq_dtype = np.dtype([('source_id', np.int64),
-                                    ('ra', float),
-                                    ('dec', float),
-                                    ('parallax', float),
-                                    ('pmra', float),
-                                    ('pmdec', float),
-                                    ('dr2_radial_velocity', float),
-                                    ('ruwe', float),
-                                    ('ref_epoch', float),
-                                    ('parallax_over_error', float)])
+        self.dtype = np.dtype([('source_id', np.int64),
+                               ('x', float),
+                               ('y', float),
+                               ('z', float),
+                               ('vx', float),
+                               ('vy', float),
+                               ('vz', float),
+                               ('ref_epoch', float)])
+        self.eq_dtype = np.dtype([('source_id', np.int64),
+                                  ('ra', float),
+                                  ('dec', float),
+                                  ('parallax', float),
+                                  ('pmra', float),
+                                  ('pmdec', float),
+                                  ('dr2_radial_velocity', float),
+                                  ('ruwe', float),
+                                  ('ref_epoch', float),
+                                  ('parallax_over_error', float)])
 
         self.__A_G_inv = np.array([
             [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
@@ -143,7 +143,7 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
-        new_data = np.zeros(data['source_id'].shape, dtype=self.__dtype)
+        new_data = np.zeros(data['source_id'].shape, dtype=self.dtype)
         for name in new_data.dtype.names:
             if name != 'source_id':
                 new_data[name] = data[name]
@@ -160,7 +160,7 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
-        new_data = np.zeros(data['source_id'].shape, dtype=self.__eq_dtype)
+        new_data = np.zeros(data['source_id'].shape, dtype=self.eq_dtype)
         for name in new_data.dtype.names:
             if name != 'source_id':
                 new_data[name] = data[name]
@@ -220,7 +220,7 @@ class Data:
             vz.append(galactic_cartesian['vz'])
             ref_epoch.append(data['ref_epoch'][s])
 
-        data_cart = np.zeros(len(data), dtype=self.__dtype)
+        data_cart = np.zeros(len(data), dtype=self.dtype)
         data_cart['source_id'] = source_id
         data_cart['x'] = x
         data_cart['y'] = y
@@ -257,8 +257,8 @@ class Data:
 
         cartesian_data = np.array([(eq['source_id'],
                                     pos_gal[0], pos_gal[1], pos_gal[2],
-                                    mu_gal[0], mu_gal[2], mu_gal[2],
-                                    eq['ref_epoch'])], dtype=self.__dtype)
+                                    mu_gal[0], mu_gal[1], mu_gal[2],
+                                    eq['ref_epoch'])], dtype=self.dtype)
 
         return cartesian_data
 
