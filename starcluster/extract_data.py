@@ -3,6 +3,8 @@ import os
 
 from pathlib import Path
 
+from .const import PC2KM, YR2S
+
 
 class Data:
     astrometry_base_cols = ['source_id', 'ra', 'dec', 'parallax',
@@ -62,6 +64,19 @@ class Data:
                                  ('vy', float),
                                  ('vz', float),
                                  ('ref_epoch', float)])
+        self.__eq_dtype = np.dtype([('source_id', np.int64),
+                                    ('ra', float),
+                                    ('dec', float),
+                                    ('parallax', float),
+                                    ('pmra', float),
+                                    ('pmdec', float),
+                                    ('dr2_radial_velocity', float),
+                                    ('ref_epoch', float)])
+
+        self.__A_G_inv = np.array([
+            [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
+            [0.4941094278755837, -0.4448296299600112,  0.7469822444972189],
+            [-0.8676661490190047, -0.1980763734312015,  0.4559837761750669]])
 
     def read(self, outpath=None, *, ruwe=None, parallax_over_error=None):
         # FIXME: Check if documentation is up to date
@@ -99,6 +114,8 @@ class Data:
             good data. See GAIA-C3-TN-LU-LL-124-01 document for further
             information. If `ruwe` is None, the limit is set to np.inf,
             accepting all data.
+        parallax_over_error:
+
 
         Returns
         -------
@@ -177,12 +194,12 @@ class Data:
         for s in range(data['source_id'].shape):
             ra, dec, par = data['ra'][s], data['dec'][s], data['parallax'][s]
             pmra, pmdec, vrad = data['pmra'][s], data['pmdec'][s], \
-                                data['dr2_radial_velocity'][s]
+                data['dr2_radial_velocity'][s]
 
-            # FIXME: wrong datatype
             equatorial = np.array([(data['source_id'][s],
                                    ra, dec, par, pmra, pmdec, vrad,
-                                   data['ref_epoch'][s])], dtype=self.__dtype)
+                                   data['ref_epoch'][s])],
+                                  dtype=self.__eq_dtype)
             galactic_cartesian = self.__eq_to_galactic(equatorial)
 
             source_id.append(data['source_id'][s])
@@ -202,14 +219,15 @@ class Data:
         data_cart['vx'] = vx
         data_cart['vy'] = vy
         data_cart['vz'] = vz
+        data_cart['ref_epoch'] = ref_epoch
 
         return data_cart
 
     def __eq_to_galactic(self, eq):
         ra = np.deg2rad(eq['ra'])
         dec = np.deg2rad(eq['dec'])
-        pmra = self.__masyr_to_kms(pmra, eq['parallax'])
-        pmdec = self.__masyr_to_kms(pmdec, eq['parallax'])
+        pmra = self.__masyr_to_kms(eq['pmra'], eq['parallax'])
+        pmdec = self.__masyr_to_kms(eq['pmdec'], eq['parallax'])
 
         pos_icrs = np.array([np.cos(dec)*np.cos(ra)/eq['parallax'],
                              np.cos(dec)*np.sin(ra)/eq['parallax'],
@@ -225,90 +243,30 @@ class Data:
         r_icrs = np.cross(p_icrs, q_icrs)
 
         mu_icrs = p_icrs * pmra + q_icrs * pmdec + \
-                  r_icrs * eq['dr2_radial_velocity']
+            r_icrs * eq['dr2_radial_velocity']
         mu_gal = self.A_G_inv.dot(mu_icrs)
 
-        cartesian_data = np.array([()])
+        cartesian_data = np.array([(eq['source_id'],
+                                    pos_gal[0], pos_gal[1], pos_gal[2],
+                                    mu_gal[0], mu_gal[2], mu_gal[2],
+                                    eq['ref_epoch'])], dtype=self.__dtype)
 
-    def __dec(self, l, b):
-        b = np.deg2rad(b)
-        l = np.deg2rad(l)
+        return cartesian_data
 
-        sin_dec = np.sin(self.dec_G) * np.sin(b)
-        sin_dec += (np.cos(self.dec_G) * np.cos(b) * np.cos(self.theta - l))
+    @staticmethod
+    def __masyr_to_kms(pm, parallax):
+        pm_asyr = pm * 1e-3
+        pm_degyr = pm_asyr / 3600
+        pm_radyr = np.deg2rad(pm_degyr)
+        pm_rads = pm_radyr / YR2S
 
-        return np.arcsin(sin_dec)
+        parallax_pc = 1 / (parallax * 1e-3)
+        parallax_km = parallax_pc * PC2KM
 
-    def __ra(self, l, b):
-        b = np.deg2rad(b)
-        l = np.deg2rad(l)
+        pm_kms = pm_rads * parallax_km
 
-        f1 = np.cos(b) * np.sin(self.theta - l)
-        f2 = np.cos(self.dec_G * np.sin(b))
-        f2 -= (np.sin(self.dec_G) * np.cos(b) * np.cos(self.theta - l))
-
-        return self.ra_G + np.arctan2(f1, f2)
-
-    def __pmdec(self, l, b, pml, pmb):
-        b = np.deg2rad(b)
-        l = np.deg2rad(l)
-
-        pmb_term = np.sin(self.dec_G) * np.cos(b)
-        pmb_term -= np.cos(self.dec_G) * np.sin(b) * np.cos(self.theta - l)
-        pmb_term *= pmb
-
-        pml_term = np.cos(self.dec_G) * np.sin(self.theta - l)
-        pml_term *= pml
-
-        return (pml_term + pmb_term) / (1 - self.__F(l, b)**2)
-
-    def __pmra(self, l, b, pml, pmb):
-        b = np.deg2rad(b)
-        l = np.deg2rad(l)
-
-        pmb_term = -np.sin(b)*np.sin(self.theta - l) * np.__H(l, b)
-        pmb_term -= self.__G(l, b) * (np.cos(self.dec_G) * np.cos(b) +
-                                      np.sin(self.dec_G) * np.sin(b) *
-                                      np.cos(self.theta - l))
-        pmb_term *= pmb
-
-        pml_term = self.__H(l, b) * (-np.cos(b) * np.cos(self.theta - l))
-        pml_term -= self.__G(l, b) * (-np.sin(self.dec_G) * np.cos(b) *
-                                      np.sin(self.theta - l))
-        pml_term *= pml
-
-        ra = (pml_term + pmb_term) / (self.__G(l, b)**2 + self.__H(l, b)**2)
-        return ra * np.cos(self.__dec(l, b))
-
-    def __F(self, l, b):
-        f = np.sin(self.dec_G) * np.sin(b)
-        f += np.cos(self.dec_G) * np.cos(b) * np.cos(self.theta - l)
-
-        return f
-
-    def __G(self, l, b):
-        return np.cos(b) * np.sin(self.theta - self.l)
-
-    def __H(self, l, b):
-        h = np.cos(self.dec_G) * np.sin(b)
-        h -= np.sin(self.dec_G) * np.cos(b) * np.cos(self.theta - l)
-
-        return h
-
-    def __rad2as(self, rad):
-        deg = rad * 180 / np.pi
-        arcsec = deg * 3600
-
-        return arcsec
+        return pm_kms
 
     @property
-    def dec_G(self):
-        return np.deg2rad(27.12825)
-
-    @property
-    def ra_G(self):
-        return np.deg2rad(192.85948)
-
-    @property
-    def theta(self):
-        return np.deg2rad(123.932)
+    def A_G_inv(self):
+        return self.__A_G_inv
