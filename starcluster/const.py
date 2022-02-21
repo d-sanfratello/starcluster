@@ -1,4 +1,6 @@
-from astropy import units as u
+import numpy as np
 
-PC2KM = (1 * u.pc).to(u.km).value  # km
-YR2S = (1 * u.yr).to(u.s).value  # s
+# IAU 2015 B2, IAU 2012 B2
+PC2KM = (648000/np.pi) * 149597870.700  # km
+# Julian yr in days times seconds in a day.
+YR2S = 365.25 * 86400  # s
