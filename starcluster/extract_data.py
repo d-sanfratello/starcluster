@@ -141,7 +141,14 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
-        return data
+        new_data = np.zeros(data['source_id'].shape, dtype=self.__dtype)
+        for name in new_data.dtype.names:
+            if name != 'source_id':
+                new_data[name] = data[name]
+            else:
+                new_data['source_id'] = data['source_id'].astype(np.int64)
+
+        return new_data
 
     def __open_gaia(self, outpath=None, *, ruwe=None, parallax_over_error=None):
         # 10.1051/0004-6361/201832964 - parallax
