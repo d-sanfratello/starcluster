@@ -7,7 +7,7 @@ from .const import PC2KM, YR2S
 
 
 class Data:
-    astrometry_base_cols = ['source_id', 'ra', 'dec', 'parallax',
+    astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
                             'pmra', 'pmdec', 'dr2_radial_velocity'
                             'ruwe', 'parallax_over_error',
                             'ref_epoch']
@@ -152,7 +152,7 @@ class Data:
                              filling_values=np.nan)
 
         # Selecting data based on missing parameters
-        for col in self.astrometry_base_cols:
+        for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
