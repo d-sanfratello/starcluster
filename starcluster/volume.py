@@ -32,6 +32,18 @@ def log_volume_cone(data, aperture):
 
 
 def log_volume_sector(data, aperture):
+    """
+
+        Parameters
+        ----------
+        data
+        aperture:
+            In arcmin
+
+        Returns
+        -------
+
+        """
     aperture_deg = aperture / 60
     if aperture_deg == 180:
         return log_volume_sphere(data)
