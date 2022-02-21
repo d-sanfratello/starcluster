@@ -337,7 +337,8 @@ class StarClusters:
             :iterable args: Iterable with arguments. These are (in order):
                                 - stars: the stars to analyse
                                 - event id: name to be given to the data set
-                                - cone volume: uniform prior on background stars position
+                                - log_volume: uniform prior on background stars
+                                position
                                 - inital assignment: initial guess for cluster assignments (optional - if it does not apply, use None)
         Returns:
             :tuple: mean and variance hyperpriors
@@ -346,14 +347,14 @@ class StarClusters:
         # Unpack arguments
         stars = args[0]
         event_id = args[1]
-        cone_volume = args[2]
+        log_volume = args[2]
         initial_assign = args[3]
         
         self.stars          = stars
         self.initial_assign = initial_assign
         self.e_ID           = event_id
         # FIXME: p(x,y,z) = cnst for background
-        self.log_volume     = np.log(cone_volume)
+        self.log_volume     = log_volume
 
         if self.sigma_max_from_data:
             self.sigma_max = np.std(self.stars, axis = 0)/2.
