@@ -6,10 +6,9 @@ from pathlib import Path
 
 class Data:
     astrometry_base_cols = ['source_id', 'ra', 'dec', 'parallax',
-                            'pmra', 'pmdec',
-                            'ruwe', 'ref_epoch',
-                            'parallax_error', 'parallax_over_error',
-                            'dr2_radial_velocity']
+                            'pmra', 'pmdec', 'dr2_radial_velocity'
+                            'ruwe', 'parallax_over_error',
+                            'ref_epoch']
     astrometry_full_cols = ['source_id', 'ra', 'dec', 'parallax',
                             'pmra', 'pmdec', 'radial_velocity',
                             'ruwe', 'ref_epoch',
@@ -24,6 +23,7 @@ class Data:
                             'dr2_radial_velocity_error']
 
     def __init__(self, path, *, is_cartesian=False):
+        # FIXME: Check if documentation is up to date
         """
         Class to open an existing file containing astrometric data.
 
@@ -51,16 +51,20 @@ class Data:
         self.path = Path(path)
         self.is_cartesian = is_cartesian
 
-        self.__names = ['source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz']
+        self.__names = ['source_id',
+                        'x', 'y', 'z', 'vx', 'vy', 'vz',
+                        'ref_epoch']
         self.__dtype = np.dtype([('source_id', np.int64),
                                  ('x', float),
                                  ('y', float),
                                  ('z', float),
                                  ('vx', float),
                                  ('vy', float),
-                                 ('vz', float)])
+                                 ('vz', float),
+                                 ('ref_epoch', float)])
 
-    def read(self, outpath=None, *, ruwe=None):
+    def read(self, outpath=None, *, ruwe=None, parallax_over_error=None):
+        # FIXME: Check if documentation is up to date
         """
         Method of the `Data` class to read the file whose path was defined in
         the `Data.path` attribute.
@@ -69,7 +73,7 @@ class Data:
         returns a structured array. The file must be formatted with six
         columns containing the x, y and z coordinates and vx, vy and vz
         velocities. Each row corresponds to a star. The structured array has
-        labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz'.
+        labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz' and 'ref_epoch'.
 
         If `Data.is_cartesian` is False, this method reads the file as a gaia
         dataset, it creates an `astropy.coordinates.SkyCoord` object with
@@ -107,7 +111,8 @@ class Data:
         if self.is_cartesian:
             return self.__open_cartesian()
         else:
-            self.__open_gaia(outpath=outpath, ruwe=ruwe)
+            self.__open_gaia(outpath=outpath,
+                             ruwe=ruwe, parallax_over_error=parallax_over_error)
 
     def __open_cartesian(self):
         data = np.genfromtxt(self.path,
@@ -140,7 +145,7 @@ class Data:
         data_good = data_good[data_good['parallax_over_error'] >=
                               parallax_over_error]
 
-        data = self.__eq_to_cartesian(data_good)
+        data = self.__eq_to_galcartesian(data_good)
 
         if outpath is None:
             outpath = os.getcwd()
@@ -150,10 +155,10 @@ class Data:
 
         np.savetxt(outpath,
                    data,
-                   header='source_id,x,y,z,vx,vy,vz',
+                   header='source_id,x,y,z,vx,vy,vz,ref_epoch',
                    delimiter=',')
 
-    def __eq_to_cartesian(self, data):
+    def __eq_to_galcartesian(self, data):
         # FIXME: Complete with conversion to galactic coordinates. See notes
         #  on from Gaia documentation for vectorial conversion of coordinates.
         #  It may be useful to read also notes at pages a (for covariance
@@ -167,54 +172,27 @@ class Data:
         vx = []
         vy = []
         vz = []
+        ref_epoch = []
 
         for s in range(data['source_id'].shape):
-            ra, dec, par, pmra, pmdec = data['ra'][s], \
-                                        data['dec'][s], \
-                                        data['parallax'][s], \
-                                        data['pmra'][s], \
-                                        data['pmdec'][s]
+            ra, dec, par = data['ra'][s], data['dec'][s], data['parallax'][s]
+            pmra, pmdec, vrad = data['pmra'][s], data['pmdec'][s], \
+                                data['dr2_radial_velocity'][s]
 
-            s_ra = data['ra_error'][s] / np.cos(np.deg2rad(dec))
-            s_dec = data['dec_error'][s]
-            s_par = data['parallax_error'][s]
-            s_pmra = data['prma_error'][s]
-            s_pmdec = data['pmdec_error'][s]
-            cov_ra_dec = data['ra_dec_corr'][s] * s_ra * s_dec
-            cov_ra_par = data['ra_parallax_corr'][s] * s_ra * s_par
-            cov_ra_pmra = data['ra_pmra_corr'][s] * s_ra * s_pmra
-            cov_ra_pmdec = data['ra_pmdec_coor'][s] * s_ra * s_pmdec
-            cov_dec_par = data['dec_parallax_corr'][s] * s_dec * s_par
-            cov_dec_pmra = data['dec_pmra_corr'][s] * s_dec * s_pmra
-            cov_dec_pmdec = data['dec_pmdec_corr'][s] * s_dec * s_pmdec
-            cov_par_pmra = data['parallax_pmra_corr'][s] * s_par * s_pmra
-            cov_par_pmdec = data['parallax_pmdec_corr'][s] * s_par * s_pmdec
-            cov_pmra_pmdec = data['pmra_pmdec_corr'][s] * s_pmra * s_pmdec
-
-            sigma = [[s_ra**2, cov_ra_dec, cov_ra_par, cov_ra_pmra, cov_ra_pmdec],
-                     [cov_ra_dec, s_dec**2, cov_dec_par, cov_dec_pmra, cov_dec_pmdec],
-                     [cov_ra_par, cov_dec_par, s_par**2, cov_par_pmra, cov_par_pmdec],
-                     [cov_ra_pmra, cov_dec_pmra, cov_par_pmra, s_pmra**2, cov_pmra_pmdec],
-                     [cov_ra_pmdec, cov_dec_pmdec, cov_par_pmdec, cov_pmra_pmdec, s_pmdec**2]]
-
-            sigma = np.array(sigma)
-
-            vrad = data['dr2_radial_velocity'][s]
-            s_vrad = data['dr2_radial_velocity_error'][s]
-
-            sampler = Sampler(ra, dec, pmra, pmdec, par, sigma,
-                              vrad, s_vrad)
-            galactic = sampler.run()
-
-            cartesian = self.__gal_to_cartesian(galactic)
+            # FIXME: wrong datatype
+            equatorial = np.array([(data['source_id'][s],
+                                   ra, dec, par, pmra, pmdec, vrad,
+                                   data['ref_epoch'][s])], dtype=self.__dtype)
+            galactic_cartesian = self.__eq_to_galactic(equatorial)
 
             source_id.append(data['source_id'][s])
-            x.append(cartesian['x'])
-            y.append(cartesian['y'])
-            z.append(cartesian['z'])
-            vx.append(cartesian['vx'])
-            vy.append(cartesian['vy'])
-            vz.append(cartesian['vz'])
+            x.append(galactic_cartesian['x'])
+            y.append(galactic_cartesian['y'])
+            z.append(galactic_cartesian['z'])
+            vx.append(galactic_cartesian['vx'])
+            vy.append(galactic_cartesian['vy'])
+            vz.append(galactic_cartesian['vz'])
+            ref_epoch.append(data['ref_epoch'][s])
 
         data_cart = np.zeros(len(data), dtype=self.__dtype)
         data_cart['source_id'] = source_id
@@ -227,13 +205,30 @@ class Data:
 
         return data_cart
 
-    def __gal_to_cartesian(self, gal):
-        x = np.cos(gal['b']) * np.cos(gal['l']) * gal['r']
-        y = np.cos(gal['b']) * np.sin(gal['l']) * gal['r']
-        z = np.sin(gal['b']) * gal['r']
+    def __eq_to_galactic(self, eq):
+        ra = np.deg2rad(eq['ra'])
+        dec = np.deg2rad(eq['dec'])
+        pmra = self.__masyr_to_kms(pmra, eq['parallax'])
+        pmdec = self.__masyr_to_kms(pmdec, eq['parallax'])
 
-        # FIXME: Evaluate cartesian velocities (see how you did for for
-        #  equatorial cartesian coordinates)
+        pos_icrs = np.array([np.cos(dec)*np.cos(ra)/eq['parallax'],
+                             np.cos(dec)*np.sin(ra)/eq['parallax'],
+                             np.sin(dec) / eq['parallax']])
+        pos_gal = self.A_G_inv.dot(pos_icrs)
+
+        p_icrs = np.array([-np.sin(ra),
+                           np.cos(ra),
+                           0])
+        q_icrs = np.array([-np.cos(ra) * np.sin(dec),
+                           -np.sin(ra) * np.sin(dec),
+                           np.cos(dec)])
+        r_icrs = np.cross(p_icrs, q_icrs)
+
+        mu_icrs = p_icrs * pmra + q_icrs * pmdec + \
+                  r_icrs * eq['dr2_radial_velocity']
+        mu_gal = self.A_G_inv.dot(mu_icrs)
+
+        cartesian_data = np.array([()])
 
     def __dec(self, l, b):
         b = np.deg2rad(b)
