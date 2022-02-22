@@ -28,8 +28,8 @@ class Data:
         """
         Class to open an existing file containing astrometric data.
 
-        If `is_cartesian` is True, this class will read a txt file containing
-        data in galactic cartesian coordinates. If `is_cartesian` is False,
+        If `is_cartesian` is `True`, this class will read a txt file containing
+        data in galactic cartesian coordinates. If `is_cartesian` is `False`,
         it reads data from a Gaia csv file and uses the method from
         Hobbs et al., 2021, Ch.4 to convert Gaia data to galactic cartesian
         coordinates. Data from Gaia data must contain the `ruwe` column, to
@@ -45,7 +45,7 @@ class Data:
             differences between datasets in galactic cartesian components and as
             a gaia dataset, read below.
         is_cartesian:
-            'bool'. If True, the path given in `path` contains data already
+            'bool'. If `True`, the path given in `path` contains data already
             converted into galactic cartesian components. See `Data.read` for
             further information.
         """
@@ -84,51 +84,56 @@ class Data:
         Method of the `Data` class to read the file whose path was defined in
         the `Data.path` attribute.
 
-        If 'Data.is_cartesian` is True, this method reads the file and
-        returns a structured array. The file must be formatted with six
+        If 'Data.is_cartesian` is `True`, this method reads the file and
+        returns a numpy structured array. The file must be formatted with eight
         columns containing the x, y and z coordinates and vx, vy and vz
-        velocities. Each row corresponds to a star. The structured array has
-        labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz' and 'ref_epoch'.
+        velocities, the remaining two columns are 'source_id' and 'ref_epoch'.
+        Each row corresponds to a star. The structured array has labels
+        'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz' and 'ref_epoch'.
 
         Spatial coordinates are expressed in kpc, velocities in km/s.
 
-        If `Data.is_cartesian` is False, this method reads the file as a Gaia
-        dataset, it creates a numpy structured array with right ascension,
-        declination, parallax, proper motion and distances for each source. Gaia
-        data must contain the `ruwe` column, as it is used to choose good
-        quality data. It must, also, contain the `ref_epoch` column and the
-        `parallax_over_error` column, which is used to select data with a
-        smaller parallax relative error, to keep symmetry in the distance
-        probability distribution. Any row containing missing
-        data is deleted before conversion into galactic cartesian
-        coordinates. Finally, it must contain the `source_id` column as it is
-        used to identify stars.
+        If `Data.is_cartesian` is `False`, this method reads the file as a Gaia
+        dataset, converting the equatorial coordinates of RA, DEC, parallax,
+        proper motion and radial velocity into galactic cartesian
+        coordinates, following Hobbs et al., 2021, Ch.4. If `ruwe` and
+        `parallax_over_error` parameters are not `None` (independently),
+        stars in the Gaia dataset are filtered, keeping only stars with ruwe
+        <= `ruwe` and parallax_over_error >= `parallax_over_error`.
+
+        Hence, Gaia csv dasatet must contain both the `ruwe` and the
+        `parallax_over_error` columns. It must, also, contain the `ref_epoch`
+        column. Any row containing missing data (imported as `Nan`s) is deleted
+        before conversion into galactic cartesian coordinates. Finally, it must
+        contain the `source_id` column as it is used to identify stars.
 
         Parameters
         ----------
         outpath:
             None, 'str' or 'Path-like'. The path of the output file to save
-            cartesian coordinates data if a gaia dataset is read. If None,
+            cartesian coordinates data if a gaia dataset is read. If `None`,
             it saves the data in the current working directory in a file
-            named 'gaia_galactic.txt'. (Optional)
+            named 'gaia_galactic.txt'. (Optional if `is_cartesian` in class
+            initialization was `False`, otherwise this is ignored)
         ruwe:
-            If `Data.is_cartesian` is False it is the RUWE limit to accept
+            If `Data.is_cartesian` is `False` it is the RUWE limit to accept
             good data. See GAIA-C3-TN-LU-LL-124-01 document for further
-            information. If `ruwe` is None, the limit is set to np.inf,
-            accepting all data.
+            information. If `ruwe` is `None`, the limit is set to np.inf,
+            accepting all data. (Optional, if `is_cartesian` in class
+            initialization was `True` this is ignored)
         parallax_over_error:
             The value of the parallax divided by its error. Its the inverse
             of the relative error and is used to select data which has an
             almost symmetrical probability distribution over distance,
             so that 1 / parallax is a good approximation for the mode of the
-            posterior of the distance. If `parallax_over_error` is None,
-            the limit is set to 0, accepting alla data.
-
+            posterior of the distance. If `parallax_over_error` is `None`,
+            the limit is set to 0, accepting alla data. (Optional, if
+            `is_cartesian` in class initialization was `True` this is ignored)
 
         Returns
         -------
-        Numpy structured array:
-            If `Data.is_cartesian` is True, it returns a numpy structured
+        numpy structured array:
+            If `Data.is_cartesian` is `True`, it returns a numpy structured
             array with fields 'source_id', 'x', 'y', 'z', 'vx', 'vy',
             'vz' and 'ref_epoch', containing the galactic cartesian coordinates
             for each star.
