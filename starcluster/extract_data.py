@@ -112,21 +112,21 @@ class Data:
         Parameters
         ----------
         outpath:
-            None, 'str' or 'Path-like'. The path of the output file to save
+            `None`, 'str' or 'Path-like'. The path of the output file to save
             cartesian coordinates data if a gaia dataset is read. If `None`,
             it saves the data in the current working directory in a file
             named 'gaia_galactic.txt'. (Optional if `is_cartesian` in class
             initialization was `False`, otherwise this is ignored)
         ruwe:
-            If `Data.is_cartesian` is `False` it is the RUWE limit to accept
-            good data. See GAIA-C3-TN-LU-LL-124-01 document for further
+            `number`. If `Data.is_cartesian` is `False` it is the RUWE limit to
+            accept good data. See GAIA-C3-TN-LU-LL-124-01 document for further
             information. If `ruwe` is `None`, the limit is set to np.inf,
             accepting all data. (Optional, if `is_cartesian` in class
             initialization was `True` this is ignored)
         parallax_over_error:
-            The value of the parallax divided by its error. Its the inverse
-            of the relative error and is used to select data which has an
-            almost symmetrical probability distribution over distance,
+            `number`. The value of the parallax divided by its error. Its the
+            inverse of the relative error and is used to select data which has
+            an almost symmetrical probability distribution over distance,
             so that 1 / parallax is a good approximation for the mode of the
             posterior of the distance. If `parallax_over_error` is `None`,
             the limit is set to 0, accepting alla data. (Optional, if
