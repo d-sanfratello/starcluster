@@ -90,6 +90,8 @@ class Data:
         velocities. Each row corresponds to a star. The structured array has
         labels 'source_id', 'x', 'y', 'z', 'vx', 'vy', 'vz' and 'ref_epoch'.
 
+        Spatial coordinates are expressed in kpc, velocities in km/s.
+
         If `Data.is_cartesian` is False, this method reads the file as a Gaia
         dataset, it creates a numpy structured array with right ascension,
         declination, parallax, proper motion and distances for each source. Gaia
