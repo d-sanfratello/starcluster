@@ -74,6 +74,8 @@ class Data:
                                   ('ref_epoch', float),
                                   ('parallax_over_error', float)])
 
+        # The matrix to convert from equatorial cartesian coordinates to
+        # galactic cartesian components. See Hobbs et al., 2021, Ch.4
         self.__A_G_inv = np.array([
             [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
             [0.4941094278755837, -0.4448296299600112,  0.7469822444972189],
@@ -150,6 +152,8 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
+        # genfromtxt appears to ignore the first element of dtype being
+        # int64. This is taken care of here.
         new_data = np.zeros(data['source_id'].shape, dtype=self.dtype)
         for name in new_data.dtype.names:
             if name != 'source_id':
@@ -167,6 +171,8 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
+        # genfromtxt appears to ignore the first element of dtype being
+        # int64. This is taken care of here.
         new_data = np.zeros(data['source_id'].shape, dtype=self.eq_dtype)
         for name in new_data.dtype.names:
             if name != 'source_id':
@@ -176,7 +182,7 @@ class Data:
 
         data = new_data
 
-        # Selecting data based on missing parameters
+        # Data containing NaNs are discarded
         for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
@@ -186,6 +192,7 @@ class Data:
             ruwe = np.inf
         data_good = data[data['ruwe'] <= ruwe]
 
+        # Selecting data based on relative error on parallax
         if parallax_over_error is None:
             parallax_over_error = 0.
         data_good = data_good[data_good['parallax_over_error'] >=
@@ -242,22 +249,34 @@ class Data:
     def __eq_to_galactic(self, eq):
         ra = np.deg2rad(eq['ra'])
         dec = np.deg2rad(eq['dec'])
-        pmra = self.__masyr_to_kms(eq['pmra'], eq['parallax'])
+        pmra = self.__masyr_to_kms(eq['pmra'], eq['parallax'])  # pm_ra_cosdec
         pmdec = self.__masyr_to_kms(eq['pmdec'], eq['parallax'])
 
+        # position of star in ICRS cartesian coordinates.
         pos_icrs = np.array([np.cos(dec)*np.cos(ra)/eq['parallax'],
                              np.cos(dec)*np.sin(ra)/eq['parallax'],
                              np.sin(dec) / eq['parallax']])
+
+        # conversion to galactic coordinates.
         pos_gal = self.A_G_inv.dot(pos_icrs)
 
+        # unit vector for proper motion component in RA
+        # (expressed in km/s, see above)
         p_icrs = np.array([-np.sin(ra),
                            np.cos(ra),
                            0])
+
+        # unit vector for proper motion component in DEC
+        # (expressed in km/s, see above)
         q_icrs = np.array([-np.cos(ra) * np.sin(dec),
                            -np.sin(ra) * np.sin(dec),
                            np.cos(dec)])
+
+        # unit vector for radial velocity component as cross product between
+        # p_icrs and q_icrs
         r_icrs = np.cross(p_icrs, q_icrs)
 
+        # total proper motion in ICRS system and then converted to galactic.
         mu_icrs = p_icrs * pmra + q_icrs * pmdec + \
             r_icrs * eq['dr2_radial_velocity']
         mu_gal = self.A_G_inv.dot(mu_icrs)
@@ -271,15 +290,15 @@ class Data:
 
     @staticmethod
     def __masyr_to_kms(pm, parallax):
-        pm_asyr = pm * 1e-3
-        pm_degyr = pm_asyr / 3600
-        pm_radyr = np.deg2rad(pm_degyr)
-        pm_rads = pm_radyr / YR2S
+        pm_asyr = pm * 1e-3  # arcsec/yr
+        pm_degyr = pm_asyr / 3600  # deg/yr
+        pm_radyr = np.deg2rad(pm_degyr)  # rad/yr
+        pm_rads = pm_radyr / YR2S  # rad/s
 
-        parallax_pc = 1 / (parallax * 1e-3)
-        parallax_km = parallax_pc * PC2KM
+        distance_pc = 1 / (parallax * 1e-3)  # pc
+        distance_km = distance_pc * PC2KM  # km
 
-        pm_kms = pm_rads * parallax_km
+        pm_kms = pm_rads * distance_km  # km/s
 
         return pm_kms
 
