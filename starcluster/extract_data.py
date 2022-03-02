@@ -3,28 +3,19 @@ import os
 
 from pathlib import Path
 
-from .const import PC2KM, YR2S
+from .const import PC2KM, YR2S, PC2KPC
 
 
 class Data:
     astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
-                       'ruwe', 'parallax_over_error',
                        'ref_epoch']
-    astrometry_full_cols = ['source_id', 'ra', 'dec', 'parallax',
-                            'pmra', 'pmdec', 'radial_velocity',
-                            'ruwe', 'ref_epoch',
-                            'ra_error', 'dec_error',
-                            'parallax_error', 'parallax_over_error',
-                            'pmra_error', 'pmdec_error', 'ra_dec_corr',
-                            'ra_parallax_corr', 'ra_pmra_corr',
-                            'ra_pmdec_corr', 'dec_parallax_corr',
-                            'dec_pmra_corr', 'dec_pmdec_corr',
-                            'parallax_pmra_corr', 'parallax_pmdec_corr',
-                            'pmra_pmdec_corr', 'dr2_radial_velocity',
-                            'dr2_radial_velocity_error']
+    dist_cols = ['id',
+                 'r_med_geo', 'r_lo_geo', 'r_hi_geo',
+                 'r_med_photogeo', 'r_lo_photogeo', 'r_ho_photogeo',
+                 'flag']
 
-    def __init__(self, path, *, is_cartesian=False):
+    def __init__(self, path, *, dist_path=None, is_cartesian=False):
         """
         Class to open an existing file containing astrometric data.
 
@@ -44,12 +35,18 @@ class Data:
             'str' or 'Path-like'. The path to the file containing data. For
             differences between datasets in galactic cartesian components and as
             a gaia dataset, read below.
+        dist_path:
+            'str' or 'Path-like'. The path to the file containing distance
+            data. Default `None`.
         is_cartesian:
             'bool'. If `True`, the path given in `path` contains data already
             converted into galactic cartesian components. See `Data.read` for
-            further information.
+            further information. Default `False`
         """
         self.path = Path(path)
+        self.dist_path = None
+        if dist_path is not None:
+            self.dist_path = Path(dist_path)
         self.is_cartesian = is_cartesian
 
         self.__names = ['source_id',
@@ -70,9 +67,15 @@ class Data:
                                   ('pmra', float),
                                   ('pmdec', float),
                                   ('dr2_radial_velocity', float),
-                                  ('ruwe', float),
-                                  ('ref_epoch', float),
-                                  ('parallax_over_error', float)])
+                                  ('ref_epoch', float)])
+        self.dist_dtype = np.dtype([('id', np.int64),
+                                    ('r_med_geo', float),
+                                    ('r_lo_geo', float),
+                                    ('r_ho_geo', float),
+                                    ('r_med_photogeo', float),
+                                    ('r_lo_photogeo', float),
+                                    ('r_hi_photogeo', float),
+                                    ('flag', int)])
 
         # The matrix to convert from equatorial cartesian coordinates to
         # galactic cartesian components. See Hobbs et al., 2021, Ch.4
@@ -81,7 +84,7 @@ class Data:
             [0.4941094278755837, -0.4448296299600112,  0.7469822444972189],
             [-0.8676661490190047, -0.1980763734312015,  0.4559837761750669]])
 
-    def read(self, outpath=None, *, ruwe=None, parallax_over_error=None):
+    def read(self, outpath=None):
         """
         Method of the `Data` class to read the file whose path was defined in
         the `Data.path` attribute.
@@ -96,18 +99,20 @@ class Data:
         Spatial coordinates are expressed in kpc, velocities in km/s.
 
         If `Data.is_cartesian` is `False`, this method reads the file as a Gaia
-        dataset, converting the equatorial coordinates of RA, DEC, parallax,
-        proper motion and radial velocity into galactic cartesian
-        coordinates, following Hobbs et al., 2021, Ch.4. If `ruwe` and
-        `parallax_over_error` parameters are not `None` (independently),
-        stars in the Gaia dataset are filtered, keeping only stars with ruwe
-        <= `ruwe` and parallax_over_error >= `parallax_over_error`.
+        dataset, converting the equatorial coordinates of RA, DEC, proper motion
+        and radial velocity into galactic cartesian coordinates,
+        following Hobbs et al., 2021, Ch.4. Distance data for each source is
+        derived from the catalogue by Bailer-Jones et al. (2021)
+        (2021AJ....161..147B).
 
-        Hence, Gaia csv dasatet must contain both the `ruwe` and the
-        `parallax_over_error` columns. It must, also, contain the `ref_epoch`
-        column. Any row containing missing data (imported as `Nan`s) is deleted
-        before conversion into galactic cartesian coordinates. Finally, it must
-        contain the `source_id` column as it is used to identify stars.
+        Given that in the work by Bayler-Jones et al. (2021) their
+        "photogeometric" distance is usually more precise, this measure is
+        used, when available, while the "geometric" distance is used otherwise.
+
+        Gaia csv dasatet must contain the `ref_epoch` column. Any row containing
+        missing data (imported as `Nan`s) is deleted before conversion into
+        galactic cartesian coordinates. Finally, it must contain the `source_id`
+        column as it is used to identify stars.
 
         Parameters
         ----------
@@ -117,20 +122,6 @@ class Data:
             it saves the data in the current working directory in a file
             named 'gaia_galactic.txt'. (Optional if `is_cartesian` in class
             initialization was `False`, otherwise this is ignored)
-        ruwe:
-            `number`. If `Data.is_cartesian` is `False` it is the RUWE limit to
-            accept good data. See GAIA-C3-TN-LU-LL-124-01 document for further
-            information. If `ruwe` is `None`, the limit is set to np.inf,
-            accepting all data. (Optional, if `is_cartesian` in class
-            initialization was `True` this is ignored)
-        parallax_over_error:
-            `number`. The value of the parallax divided by its error. Its the
-            inverse of the relative error and is used to select data which has
-            an almost symmetrical probability distribution over distance,
-            so that 1 / parallax is a good approximation for the mode of the
-            posterior of the distance. If `parallax_over_error` is `None`,
-            the limit is set to 0, accepting alla data. (Optional, if
-            `is_cartesian` in class initialization was `True` this is ignored)
 
         Returns
         -------
@@ -143,8 +134,7 @@ class Data:
         if self.is_cartesian:
             return self.__open_cartesian()
         else:
-            self.__open_gaia(outpath=outpath,
-                             ruwe=ruwe, parallax_over_error=parallax_over_error)
+            self.__open_gaia(outpath=outpath)
 
     def __open_cartesian(self):
         data = np.genfromtxt(self.path,
@@ -163,9 +153,13 @@ class Data:
 
         return new_data
 
-    def __open_gaia(self, outpath=None, *, ruwe=None, parallax_over_error=None):
+    def __open_gaia(self, outpath=None):
+        ## FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
+        if self.dist_path is None:
+            raise AttributeError("Distance file not found")
+
         data = np.genfromtxt(self.path,
                              delimiter=',',
                              names=True,
@@ -182,23 +176,42 @@ class Data:
 
         data = new_data
 
+        dist_data = np.genfromtxt(self.dist_path,
+                                  delimiter=',',
+                                  names=True,
+                                  filling_values=np.nan)
+
+        # genfromtxt appears to ignore the element of dtype being
+        # int64. This is taken care of here and for the `Flag` column, too
+        new_dist_data = np.zeros(dist_data['source_id'].shape,
+                                 dtype=self.dist_dtype)
+        for name in new_dist_data.dtype.names:
+            if name != 'id' or name != 'flag':
+                new_dist_data[name] = dist_data[name]
+            elif name == 'id':
+                new_dist_data['id'] = dist_data['id'].astype(np.int64)
+            else:
+                new_dist_data['flag'] = dist_data['flag'].astype(int)
+
+        dist_data = new_dist_data
+
+        # Selecting only Gaia EDR3 data which has distance estimated in the
+        # other catalogue.
+        data = np.array([data[idx] for idx in range(data['source_id'].shape[0])
+                         if data['source_id'][idx] in dist_data['id']],
+                        dtype=self.eq_dtype)
+
         # Data containing NaNs are discarded
         for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
-        # Selecting data based on RUWE (GAIA-C3-TN-LU-LL-124-01)
-        if ruwe is None:
-            ruwe = np.inf
-        data_good = data[data['ruwe'] <= ruwe]
+        # Data dist containing NaNs are discarded
+        for col in self.dist_cols:
+            idx = np.where(~np.isnan(dist_data[col]))
+            dist_data = dist_data[idx]
 
-        # Selecting data based on relative error on parallax
-        if parallax_over_error is None:
-            parallax_over_error = 0.
-        data_good = data_good[data_good['parallax_over_error'] >=
-                              parallax_over_error]
-
-        data = self.__eq_to_galcartesian(data_good)
+        data = self.__eq_to_galcartesian(data, dist_data)
 
         if outpath is None:
             outpath = os.getcwd()
@@ -211,7 +224,7 @@ class Data:
                    header='source_id,x,y,z,vx,vy,vz,ref_epoch',
                    delimiter=',')
 
-    def __eq_to_galcartesian(self, data):
+    def __eq_to_galcartesian(self, data, dist_data):
         source_id = []
         x = []
         y = []
@@ -223,7 +236,8 @@ class Data:
 
         for s in range(data['source_id'].shape[0]):
             equatorial = data[:][s]
-            galactic_cartesian = self.__eq_to_galactic(equatorial)
+            distances = dist_data[:][s]
+            galactic_cartesian = self.__eq_to_galactic(equatorial, distances)
 
             source_id.append(data['source_id'][s])
             x.append(galactic_cartesian['x'])
@@ -246,16 +260,19 @@ class Data:
 
         return data_cart
 
-    def __eq_to_galactic(self, eq):
+    def __eq_to_galactic(self, eq, dist):
         ra = np.deg2rad(eq['ra'])
         dec = np.deg2rad(eq['dec'])
-        pmra = self.__masyr_to_kms(eq['pmra'], eq['parallax'])  # pm_ra_cosdec
-        pmdec = self.__masyr_to_kms(eq['pmdec'], eq['parallax'])
+
+        distances = self.__select_dist(dist)  # pc
+
+        pmra = self.__masyr_to_kms(eq['pmra'], distances)  # pm_ra_cosdec
+        pmdec = self.__masyr_to_kms(eq['pmdec'], distances)
 
         # position of star in ICRS cartesian coordinates.
-        pos_icrs = np.array([np.cos(dec)*np.cos(ra)/eq['parallax'],
-                             np.cos(dec)*np.sin(ra)/eq['parallax'],
-                             np.sin(dec) / eq['parallax']])
+        pos_icrs = np.array([np.cos(dec) * np.cos(ra) * distances * PC2KPC,
+                             np.cos(dec) * np.sin(ra) * distances * PC2KPC,
+                             np.sin(dec) * distances * PC2KPC])
 
         # conversion to galactic coordinates.
         pos_gal = self.A_G_inv.dot(pos_icrs)
@@ -289,14 +306,21 @@ class Data:
         return cartesian_data
 
     @staticmethod
-    def __masyr_to_kms(pm, parallax):
+    def __select_dist(dist):
+        data = np.where(np.isnan(dist['r_med_photogeo']),
+                        dist['r_med_geo'],
+                        dist['r_med_photogeo'])
+
+        return data  # pc
+
+    @staticmethod
+    def __masyr_to_kms(pm, dist):
         pm_asyr = pm * 1e-3  # arcsec/yr
         pm_degyr = pm_asyr / 3600  # deg/yr
         pm_radyr = np.deg2rad(pm_degyr)  # rad/yr
         pm_rads = pm_radyr / YR2S  # rad/s
 
-        distance_pc = 1 / (parallax * 1e-3)  # pc
-        distance_km = distance_pc * PC2KM  # km
+        distance_km = dist * PC2KM  # km
 
         pm_kms = pm_rads * distance_km  # km/s
 
