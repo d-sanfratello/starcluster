@@ -7,7 +7,7 @@ from .const import PC2KM, YR2S, PC2KPC
 
 
 class Data:
-    astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
+    astrometry_cols = ['source_id', 'ra', 'dec',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
                        'ref_epoch']
     dist_cols = ['Source',
@@ -76,6 +76,22 @@ class Data:
                                     ('b_rpgeo', float),
                                     ('B_rpgeo', float),
                                     ('Flag', int)])
+        self.def_dtype = np.dtype([('source_id', np.int64),
+                                   ('Source', np.int64),
+                                   ('ra', float),
+                                   ('dec', float),
+                                   ('parallax', float),
+                                   ('pmra', float),
+                                   ('pmdec', float),
+                                   ('dr2_radial_velocity', float),
+                                   ('ref_epoch', float),
+                                   ('rgeo', float),
+                                   ('b_rgeo', float),
+                                   ('B_rgeo', float),
+                                   ('rpgeo', float),
+                                   ('b_rpgeo', float),
+                                   ('B_rpgeo', float),
+                                   ('Flag', int)])
 
         # The matrix to convert from equatorial cartesian coordinates to
         # galactic cartesian components. See Hobbs et al., 2021, Ch.4
@@ -142,8 +158,7 @@ class Data:
                              names=True,
                              filling_values=np.nan)
 
-        # genfromtxt appears to ignore the first element of dtype being
-        # int64. This is taken care of here.
+        # genfromtxt appears to dislike the use of dtype right away.
         new_data = np.zeros(data['source_id'].shape, dtype=self.dtype)
         for name in new_data.dtype.names:
             if name != 'source_id':
@@ -163,55 +178,61 @@ class Data:
         data = np.genfromtxt(self.path,
                              delimiter=',',
                              names=True,
-                             filling_values=np.nan)
-
-        # genfromtxt appears to ignore the first element of dtype being
-        # int64. This is taken care of here.
-        new_data = np.zeros(data['source_id'].shape, dtype=self.eq_dtype)
-        for name in new_data.dtype.names:
-            if name != 'source_id':
-                new_data[name] = data[name]
-            else:
-                new_data['source_id'] = data['source_id'].astype(np.int64)
-
-        data = new_data
+                             filling_values=np.nan,
+                             dtype=self.eq_dtype)
+        # Sorting dataset by source_id
+        data = np.sort(data, order='source_id')
 
         dist_data = np.genfromtxt(self.dist_path,
                                   delimiter=',',
                                   names=True,
-                                  filling_values=np.nan)
+                                  filling_values=np.nan,
+                                  dtype=self.dist_dtype)
+        # Sorting dataset by source_id
+        dist_data = np.sort(dist_data, order='Source')
 
-        # genfromtxt appears to ignore the element of dtype being
-        # int64. This is taken care of here and for the `Flag` column, too
-        new_dist_data = np.zeros(dist_data['Source'].shape,
-                                 dtype=self.dist_dtype)
-        for name in new_dist_data.dtype.names:
-            if name != 'Source' or name != 'Flag':
-                new_dist_data[name] = dist_data[name]
-            elif name == 'Source':
-                new_dist_data['Source'] = dist_data['Source'].astype(np.int64)
-            else:
-                new_dist_data['Flag'] = dist_data['Flag'].astype(int)
+        # Deleting dist_data elements that do not belong to gaia dataset
+        # This is executed twice to ensure the dataset is of the correct
+        # shape. The complete I/352 dataset is smaller than Gaia EDR3,
+        # so next check should be enough but since this code was tested
+        # on two datasets downloaded separately, this check ensures no source
+        # mismatch happened because of differences in sky patch at data
+        # retrieval.
+        save_idx = np.where(np.isin(dist_data['Source'],
+                                    data['source_id']))
+        dist_data = dist_data[:][save_idx]
 
-        dist_data = new_dist_data
+        # Deleting gaia elements that do not belong to dist_data dataset.
+        # This check deletes gaia sources for which distance was not
+        # estimated in I/352 catalogue. If data is downloaded in a single
+        # query, previous check *should* not be needed.
+        save_idx = np.where(np.isin(data['source_id'],
+                                    dist_data['Source']))
+        data = data[:][save_idx]
 
-        # Selecting only Gaia EDR3 data which has distance estimated in the
-        # other catalogue.
-        data = np.array([data[idx] for idx in range(data['source_id'].shape[0])
-                         if data['source_id'][idx] in dist_data['Source']],
-                        dtype=self.eq_dtype)
+        # Creating single catalogue containing all data
+        def_data = np.empty(data['source_id'].shape[0],
+                            dtype=self.def_dtype)
+        for col in self.def_dtype.names:
+            if col in self.astrometry_cols:
+                def_data[col] = data[col]
+            elif col in self.dist_cols:
+                def_data[col] = dist_data[col]
 
-        # Data containing NaNs are discarded
+        # If for some reason a row has two different source_ids associated,
+        # an error is raised
+        missed_ids = np.nonzero(def_data['source_id'] != def_data['Source'])
+        if missed_ids[0] > 0:
+            raise ValueError
+
+        # Data containing NaNs in astrometry columns are discarded (useful
+        # for gaiaedr3.gaia_source_dr3_radial_velocity, since many objects do
+        # not have this measure).
         for col in self.astrometry_cols:
-            idx = np.where(~np.isnan(data[col]))
-            data = data[idx]
+            idx = np.where(~np.isnan(def_data[col]))
+            def_data = def_data[idx]
 
-        # Data dist containing NaNs are discarded
-        for col in self.dist_cols:
-            idx = np.where(~np.isnan(dist_data[col]))
-            dist_data = dist_data[idx]
-
-        data = self.__eq_to_galcartesian(data, dist_data)
+        cart_data = self.__eq_to_galcartesian(def_data)
 
         if outpath is None:
             outpath = os.getcwd()
@@ -220,11 +241,12 @@ class Data:
             outpath = Path(outpath)
 
         np.savetxt(outpath,
-                   data,
+                   cart_data,
                    header='source_id,x,y,z,vx,vy,vz,ref_epoch',
-                   delimiter=',')
+                   delimiter=',',
+                   comments='')
 
-    def __eq_to_galcartesian(self, data, dist_data):
+    def __eq_to_galcartesian(self, data):
         source_id = []
         x = []
         y = []
@@ -235,17 +257,15 @@ class Data:
         ref_epoch = []
 
         for s in range(data['source_id'].shape[0]):
-            equatorial = data[:][s]
-            distances = dist_data[:][s]
-            galactic_cartesian = self.__eq_to_galactic(equatorial, distances)
+            galactic_cartesian = self.__eq_to_galactic(data[:][s])
 
             source_id.append(data['source_id'][s])
-            x.append(galactic_cartesian['x'])
-            y.append(galactic_cartesian['y'])
-            z.append(galactic_cartesian['z'])
-            vx.append(galactic_cartesian['vx'])
-            vy.append(galactic_cartesian['vy'])
-            vz.append(galactic_cartesian['vz'])
+            x.append(galactic_cartesian['x'][0])
+            y.append(galactic_cartesian['y'][0])
+            z.append(galactic_cartesian['z'][0])
+            vx.append(galactic_cartesian['vx'][0])
+            vy.append(galactic_cartesian['vy'][0])
+            vz.append(galactic_cartesian['vz'][0])
             ref_epoch.append(data['ref_epoch'][s])
 
         data_cart = np.zeros(len(data), dtype=self.dtype)
@@ -260,19 +280,20 @@ class Data:
 
         return data_cart
 
-    def __eq_to_galactic(self, eq, dist):
-        ra = np.deg2rad(eq['ra'])
-        dec = np.deg2rad(eq['dec'])
+    def __eq_to_galactic(self, data):
+        ra = np.deg2rad(data['ra'])
+        dec = np.deg2rad(data['dec'])
 
-        distances = self.__select_dist(dist)  # pc
+        distances = self.__select_dist(data)  # pc
 
-        pmra = self.__masyr_to_kms(eq['pmra'], distances)  # pm_ra_cosdec
-        pmdec = self.__masyr_to_kms(eq['pmdec'], distances)
+        pmra = self.__masyr_to_kms(data['pmra'], distances)  # pm_ra_cosdec
+        pmdec = self.__masyr_to_kms(data['pmdec'], distances)
 
         # position of star in ICRS cartesian coordinates.
-        pos_icrs = np.array([np.cos(dec) * np.cos(ra) * distances * PC2KPC,
-                             np.cos(dec) * np.sin(ra) * distances * PC2KPC,
-                             np.sin(dec) * distances * PC2KPC])
+        pos_icrs = np.array([np.cos(dec) * np.cos(ra) * distances,
+                             np.cos(dec) * np.sin(ra) * distances,
+                             np.sin(dec) * distances])
+        pos_icrs *= PC2KPC
 
         # conversion to galactic coordinates.
         pos_gal = self.A_G_inv.dot(pos_icrs)
@@ -295,13 +316,13 @@ class Data:
 
         # total proper motion in ICRS system and then converted to galactic.
         mu_icrs = p_icrs * pmra + q_icrs * pmdec + \
-            r_icrs * eq['dr2_radial_velocity']
+            r_icrs * data['dr2_radial_velocity']
         mu_gal = self.A_G_inv.dot(mu_icrs)
 
-        cartesian_data = np.array([(eq['source_id'],
+        cartesian_data = np.array([(data['source_id'],
                                     pos_gal[0], pos_gal[1], pos_gal[2],
                                     mu_gal[0], mu_gal[1], mu_gal[2],
-                                    eq['ref_epoch'])], dtype=self.dtype)
+                                    data['ref_epoch'])], dtype=self.dtype)
 
         return cartesian_data
 
@@ -309,9 +330,9 @@ class Data:
     def __select_dist(dist):
         data = np.where(np.isnan(dist['rpgeo']),
                         dist['rgeo'],
-                        dist['rpgeo'])
+                        dist['rpgeo']).flatten()
 
-        return data  # pc
+        return data[0]  # pc
 
     @staticmethod
     def __masyr_to_kms(pm, dist):
