@@ -10,10 +10,10 @@ class Data:
     astrometry_cols = ['source_id', 'ra', 'dec', 'parallax',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
                        'ref_epoch']
-    dist_cols = ['id',
-                 'r_med_geo', 'r_lo_geo', 'r_hi_geo',
-                 'r_med_photogeo', 'r_lo_photogeo', 'r_ho_photogeo',
-                 'flag']
+    dist_cols = ['Source',
+                 'rgeo', 'b_rgeo', 'B_rgeo',
+                 'rpgeo', 'b_rpgeo', 'B_rpgeo',
+                 'Flag']
 
     def __init__(self, path, *, dist_path=None, is_cartesian=False):
         """
@@ -68,14 +68,14 @@ class Data:
                                   ('pmdec', float),
                                   ('dr2_radial_velocity', float),
                                   ('ref_epoch', float)])
-        self.dist_dtype = np.dtype([('id', np.int64),
-                                    ('r_med_geo', float),
-                                    ('r_lo_geo', float),
-                                    ('r_ho_geo', float),
-                                    ('r_med_photogeo', float),
-                                    ('r_lo_photogeo', float),
-                                    ('r_hi_photogeo', float),
-                                    ('flag', int)])
+        self.dist_dtype = np.dtype([('Source', np.int64),
+                                    ('rgeo', float),
+                                    ('b_rgeo', float),
+                                    ('B_rgeo', float),
+                                    ('rpgeo', float),
+                                    ('b_rpgeo', float),
+                                    ('B_rpgeo', float),
+                                    ('Flag', int)])
 
         # The matrix to convert from equatorial cartesian coordinates to
         # galactic cartesian components. See Hobbs et al., 2021, Ch.4
@@ -183,22 +183,22 @@ class Data:
 
         # genfromtxt appears to ignore the element of dtype being
         # int64. This is taken care of here and for the `Flag` column, too
-        new_dist_data = np.zeros(dist_data['source_id'].shape,
+        new_dist_data = np.zeros(dist_data['Source'].shape,
                                  dtype=self.dist_dtype)
         for name in new_dist_data.dtype.names:
-            if name != 'id' or name != 'flag':
+            if name != 'Source' or name != 'Flag':
                 new_dist_data[name] = dist_data[name]
-            elif name == 'id':
-                new_dist_data['id'] = dist_data['id'].astype(np.int64)
+            elif name == 'Source':
+                new_dist_data['Source'] = dist_data['Source'].astype(np.int64)
             else:
-                new_dist_data['flag'] = dist_data['flag'].astype(int)
+                new_dist_data['Flag'] = dist_data['Flag'].astype(int)
 
         dist_data = new_dist_data
 
         # Selecting only Gaia EDR3 data which has distance estimated in the
         # other catalogue.
         data = np.array([data[idx] for idx in range(data['source_id'].shape[0])
-                         if data['source_id'][idx] in dist_data['id']],
+                         if data['source_id'][idx] in dist_data['Source']],
                         dtype=self.eq_dtype)
 
         # Data containing NaNs are discarded
@@ -307,9 +307,9 @@ class Data:
 
     @staticmethod
     def __select_dist(dist):
-        data = np.where(np.isnan(dist['r_med_photogeo']),
-                        dist['r_med_geo'],
-                        dist['r_med_photogeo'])
+        data = np.where(np.isnan(dist['rpgeo']),
+                        dist['rgeo'],
+                        dist['rpgeo'])
 
         return data  # pc
 
