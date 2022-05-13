@@ -6,3 +6,4 @@ h5py
 astropy
 pytest
 scipy
+git+https://github.com/sterinaldi/figaro
