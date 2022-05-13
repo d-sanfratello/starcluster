@@ -20,15 +20,15 @@ with open("requirements.txt") as requires_file:
     requirements = requires_file.read().split("\n")
 
 setup(
-    name = 'starcluster',
+    name='starcluster',
     use_scm_version=True,
-    description = 'Search for star clusters using DPGMM',
-    author = 'Daniele Sanfratello, Stefano Rinaldi, Walter Del Pozzo',
-    author_email = 'd.sanfratello@studenti.unipi.it, stefano.rinaldi@phd.unipi.it, walter.delpozzo@unipi.it',
-    url = 'https://github.com/d-sanfratello/starcluster',
-    python_requires = '>=3.7',
-    packages = ['starcluster'],
+    description='Search for star clusters using DPGMM',
+    author='Daniele Sanfratello, Stefano Rinaldi, Walter Del Pozzo',
+    author_email='d.sanfratello@studenti.unipi.it, stefano.rinaldi@phd.unipi.it, walter.delpozzo@unipi.it',
+    url='https://github.com/d-sanfratello/starcluster',
+    python_requires='>=3.7',
+    packages=['starcluster'],
     install_requires=requirements,
-    include_dirs = [numpy.get_include()],
-    entry_points = {},
+    include_dirs=[numpy.get_include()],
+    entry_points={},
     )
