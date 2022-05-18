@@ -572,3 +572,5 @@ class EquatorialData:
     def A_G_inv(self):
         return self.__A_G_inv
 
+    def __getitem__(self, item):
+        return self.gal[:][item]
