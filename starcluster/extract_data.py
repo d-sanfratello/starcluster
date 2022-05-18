@@ -464,6 +464,16 @@ class EquatorialData:
                    delimiter=',',
                    comments='')
 
+    def as_array(self):
+        l = self['l']
+        b = self['b']
+        plx = self['plx']
+        pml = self['pml_star']
+        pmb = self['pmb']
+        v_rad = self['v_rad']
+
+        return np.vstack((l, b, plx, pml, pmb, v_rad)).T
+
     def __open_equatorial(self):
         ## FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
@@ -502,26 +512,14 @@ class EquatorialData:
         return new_data
 
     def __eq_to_gal(self, data):
-        source_id = []
-        # l = []
-        # b = []
-        # plx = []
         pml_star = []
         pmb = []
-        # v_rad = []
-        # ref_epoch = []
 
         for s in range(data['source_id'].shape[0]):
             pml_star_s, pmb_s = self.__pm_conversion(data[:][s])
 
-            source_id.append(data['source_id'][s])
-            # l.append(data['l'][s])
-            # b.append(data['b'][s])
-            # plx.append(data['parallax'][s])
-            # v_rad.append(data['dr2_radial_velocity'][s])
             pml_star.append(pml_star_s)
             pmb.append(pmb_s)
-            # ref_epoch.append(data['ref_epoch'][s])
 
         data_gal = np.zeros(len(data), dtype=self.gal_dtype)
         data_gal['source_id'] = data['source_id']
