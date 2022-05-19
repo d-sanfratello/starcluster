@@ -481,7 +481,7 @@ class EquatorialData:
         pml = self['pml_star']
         pmb = self['pmb']
         v_rad = self['v_rad']
-        g_mag = self['g']
+        g_mag = self['g_mag']
         bp_rp = self['bp_rp']
 
         return np.vstack((l, b, plx, pml, pmb, v_rad, g_mag, bp_rp)).T
