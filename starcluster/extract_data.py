@@ -355,7 +355,8 @@ class Data:
 class EquatorialData:
     astrometry_cols = ['source_id', 'ra', 'dec', 'l', 'b',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
-                       'ref_epoch']
+                       'ref_epoch',
+                       'phot_g_mean_mag', 'bp_rp']
 
     def __init__(self, path, *, convert=True):
         """
@@ -400,6 +401,7 @@ class EquatorialData:
 
         self.__names = ['source_id',
                         'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
+                        'g_mag', 'bp_rp',
                         'ref_epoch']
         self.eq_dtype = np.dtype([('source_id', np.int64),
                                   ('l', float),
@@ -410,6 +412,8 @@ class EquatorialData:
                                   ('pmra', float),
                                   ('pmdec', float),
                                   ('dr2_radial_velocity', float),
+                                  ('phot_g_mean_mag', float),
+                                  ('bp_rp', float),
                                   ('ref_epoch', float)])
         self.gal_dtype = np.dtype([('source_id', np.int64),
                                    ('l', float),
@@ -418,6 +422,8 @@ class EquatorialData:
                                    ('pml_star', float),
                                    ('pmb', float),
                                    ('v_rad', float),
+                                   ('g_mag', float),
+                                   ('bp_rp', float),
                                    ('ref_epoch', float)])
 
         # The matrix to convert from equatorial cartesian coordinates to
@@ -460,7 +466,11 @@ class EquatorialData:
 
         np.savetxt(outpath,
                    self.gal,
-                   header='source_id,l,b,plx,pml_star,pmb,v_rad,ref_epoch',
+                   header='source_id,'
+                          'l,b,plx,'
+                          'pml_star,pmb,v_rad,'
+                          'g_mag,bp_rp,'
+                          'ref_epoch',
                    delimiter=',',
                    comments='')
 
@@ -471,8 +481,10 @@ class EquatorialData:
         pml = self['pml_star']
         pmb = self['pmb']
         v_rad = self['v_rad']
+        g_mag = self['g']
+        bp_rp = self['bp_rp']
 
-        return np.vstack((l, b, plx, pml, pmb, v_rad)).T
+        return np.vstack((l, b, plx, pml, pmb, v_rad, g_mag, bp_rp)).T
 
     def __open_equatorial(self):
         ## FIXME: check these papers and update references
@@ -529,6 +541,8 @@ class EquatorialData:
         data_gal['pml_star'] = pml_star
         data_gal['pmb'] = pmb
         data_gal['v_rad'] = data['dr2_radial_velocity']
+        data_gal['g_mag'] = data['phot_g_mean_mag']
+        data_gal['bp_rp'] = data['bp_rp']
         data_gal['ref_epoch'] = data['ref_epoch']
 
         return data_gal
