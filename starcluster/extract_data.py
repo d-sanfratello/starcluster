@@ -359,6 +359,7 @@ class EquatorialData:
                        'phot_g_mean_mag', 'bp_rp']
 
     def __init__(self, path, *, convert=True):
+        # FIXME: Update docstrings
         """
         Class to open an existing file containing astrometric data.
 
