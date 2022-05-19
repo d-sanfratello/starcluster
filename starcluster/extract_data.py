@@ -475,14 +475,14 @@ class EquatorialData:
                    comments='')
 
     def as_array(self):
-        l = self['l']
-        b = self['b']
-        plx = self['plx']
-        pml = self['pml_star']
-        pmb = self['pmb']
-        v_rad = self['v_rad']
-        g_mag = self['g_mag']
-        bp_rp = self['bp_rp']
+        l = self('l')
+        b = self('b')
+        plx = self('plx')
+        pml = self('pml_star')
+        pmb = self('pmb')
+        v_rad = self('v_rad')
+        g_mag = self('g_mag')
+        bp_rp = self('bp_rp')
 
         return np.vstack((l, b, plx, pml, pmb, v_rad, g_mag, bp_rp)).T
 
@@ -515,7 +515,8 @@ class EquatorialData:
 
         # genfromtxt appears to dislike the use of dtype right away.
         new_data = np.zeros(data['source_id'].shape, dtype=self.gal_dtype)
-        for name in new_data.gal_dtype.names:
+
+        for name in self.gal_dtype.names:
             if name != 'source_id':
                 new_data[name] = data[name]
             else:
@@ -584,7 +585,7 @@ class EquatorialData:
     def A_G_inv(self):
         return self.__A_G_inv
 
-    def __getitem__(self, item):
+    def __call__(self, item):
         if item in self.gal_dtype.names:
             return self.gal[item]
         else:
