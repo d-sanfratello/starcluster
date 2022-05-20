@@ -11,7 +11,9 @@ class EquatorialData:
     astrometry_cols = ['source_id', 'ra', 'dec', 'l', 'b',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
                        'ref_epoch',
-                       'phot_g_mean_mag', 'bp_rp']
+                       'phot_g_mean_mag',
+                       'phot_bp_mean_mag',
+                       'phot_rp_mean_mag']
 
     def __init__(self, path, *, convert=True):
         # FIXME: Update docstrings
@@ -57,7 +59,7 @@ class EquatorialData:
 
         self.__names = ['source_id',
                         'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
-                        'g_mag', 'bp_rp',
+                        'g_mag', 'bp_mag', 'rp_mag',
                         'ref_epoch']
         self.eq_dtype = np.dtype([('source_id', np.int64),
                                   ('l', float),
@@ -69,7 +71,8 @@ class EquatorialData:
                                   ('pmdec', float),
                                   ('dr2_radial_velocity', float),
                                   ('phot_g_mean_mag', float),
-                                  ('bp_rp', float),
+                                  ('phot_bp_mean_mag', float),
+                                  ('phot_rp_mean_mag', float),
                                   ('ref_epoch', float)])
         self.gal_dtype = np.dtype([('source_id', np.int64),
                                    ('l', float),
@@ -79,7 +82,11 @@ class EquatorialData:
                                    ('pmb', float),
                                    ('v_rad', float),
                                    ('g_mag', float),
+                                   ('bp_mag', float),
+                                   ('rp_mag', float),
                                    ('bp_rp', float),
+                                   ('bp_g', float),
+                                   ('g_rp', float),
                                    ('ref_epoch', float)])
 
         # The matrix to convert from equatorial cartesian coordinates to
@@ -125,22 +132,47 @@ class EquatorialData:
                    header='source_id,'
                           'l,b,plx,'
                           'pml_star,pmb,v_rad,'
-                          'g_mag,bp_rp,'
+                          'g_mag,bp_mag,rp_mag'
+                          'bp_rp,bp_g,g_rp'                        
                           'ref_epoch',
                    delimiter=',',
                    comments='')
 
-    def as_array(self):
+    def as_array(self, *, mag=None, c_index=None):
+        if mag is None:
+            mag = 'g_mag'
+        if c_index is None:
+            c_index = 'bp_rp'
+
+        if mag not in ['g_mag', 'bp_mag', 'rp_mag']:
+            raise ValueError(
+                "Magnitude has to be either `g_mag`, `bp_mag` or `rp_mag`.")
+        if c_index not in ['bp_rp', 'bp_g', 'g_rp']:
+            raise ValueError(
+                "Magnitude has to be either `bp_rp`, `bp_g` or `g_rp`.")
+
         l = self('l')
         b = self('b')
         plx = self('plx')
         pml = self('pml_star')
         pmb = self('pmb')
         v_rad = self('v_rad')
-        g_mag = self('g_mag')
-        bp_rp = self('bp_rp')
 
-        return np.vstack((l, b, plx, pml, pmb, v_rad, g_mag, bp_rp)).T
+        if mag == 'g_mag':
+            mag = self('g_mag')
+        elif mag == 'bp_mag':
+            mag = self('bp_mag')
+        elif mag == 'rp_mag':
+            mag = self('rp_mag')
+
+        if c_index == 'bp_rp':
+            c_index = self('bp_rp')
+        elif c_index == 'bp_g':
+            c_index = self('bp_g')
+        elif c_index == 'g_rp':
+            c_index = self('g_rp')
+
+        return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
 
     def __open_equatorial(self):
         ## FIXME: check these papers and update references
@@ -199,7 +231,11 @@ class EquatorialData:
         data_gal['pmb'] = pmb
         data_gal['v_rad'] = data['dr2_radial_velocity']
         data_gal['g_mag'] = data['phot_g_mean_mag']
-        data_gal['bp_rp'] = data['bp_rp']
+        data_gal['bp_mag'] = data['phot_bp_mean_mag']
+        data_gal['rp_mag'] = data['phot_rp_mean_mag']
+        data_gal['bp_rp'] = data_gal['bp_mag'] - data_gal['rp_mag']
+        data_gal['bp_g'] = data_gal['bp_mag'] - data_gal['g_mag']
+        data_gal['g_rp'] = data_gal['g_mag'] - data_gal['rp_mag']
         data_gal['ref_epoch'] = data['ref_epoch']
 
         return data_gal

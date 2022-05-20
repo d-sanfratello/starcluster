@@ -15,11 +15,13 @@ from .extract_data import EquatorialData
 class CornerPlot:
     __keys = ['ra', 'dec', 'l', 'b', 'plx',
               'pmra', 'pmdec', 'v_rad',
-              'g_mag', 'bp_rp']
+              'g_mag', 'bp_mag', 'rp_mag',
+              'bp_rp', 'bp_g', 'g_rp']
 
     def __init__(self, *,
                  density, dataset,
-                 expected=None):
+                 expected=None,
+                 mag='g_mag', c_index='bp_rp'):
 
         if expected is not None:
             for k in self.__keys:
@@ -30,9 +32,14 @@ class CornerPlot:
 
         self.density = density
         self.dataset = dataset
+        self.mag = mag
+        self.c_index = c_index
 
     def __call__(self, sampling_size, *, plot_title=None):
         density_samples = self.density.rvs(sampling_size)
+
+        mag_name = self.mag
+        c_index_name = self.c_index
 
         c = crn(density_samples,
                 bins=int(np.sqrt(sampling_size)),
@@ -44,8 +51,9 @@ class CornerPlot:
                         r'$\mu_{l*}\,[mas\,yr^{-1}]$',
                         r'$\mu_b\,[mas\,yr^{-1}]$',
                         r'$v_{rad}\,[km\,s^{-1}]$',
-                        r'$G\,[mag]$',
-                        r'$G_{BP} - G_{RP}\,[mag]$'],
+                        rf'${mag_name.strip("_mag").upper()}\,[mag]$',
+                        rf'${c_index_name.split("_")[0].upper()} - '
+                        rf'{c_index_name.split("_")[1].upper()}\,[mag]$'],
                 hist_kwargs={'density': True,
                              'label': 'DPGMM'})
 
@@ -96,7 +104,10 @@ class CornerPlot:
         return c
 
 
-def dpgmm(path, outpath=None, *, convert=True, std=None, epsilon=1e-3):
+def dpgmm(
+        path, outpath=None,
+        *, convert=True, std=None, epsilon=1e-3,
+        mag='g_mag', c_index='bp_rp'):
     dataset = EquatorialData(path=path, convert=convert)
 
     if convert:
@@ -110,8 +121,8 @@ def dpgmm(path, outpath=None, *, convert=True, std=None, epsilon=1e-3):
     pml = dataset('pml_star')
     pmb = dataset('pmb')
     v_rad = dataset('v_rad')
-    g_mag = dataset('g_mag')
-    bp_rp = dataset('bp_rp')
+    mag_ds = dataset(mag)
+    c_index_ds = dataset(c_index)
 
     bounds = [[l.min() - epsilon, l.max() + epsilon],
               [b.min() - epsilon, b.max() + epsilon],
@@ -119,10 +130,10 @@ def dpgmm(path, outpath=None, *, convert=True, std=None, epsilon=1e-3):
               [pml.min() - epsilon, pml.max() + epsilon],
               [pmb.min() - epsilon, pmb.max() + epsilon],
               [v_rad.min() - epsilon, v_rad.max() + epsilon],
-              [g_mag.min() - epsilon, g_mag.max() + epsilon],
-              [bp_rp.min() - epsilon, bp_rp.max() + epsilon]]
+              [mag_ds.min() - epsilon, mag_ds.max() + epsilon],
+              [c_index_ds.min() - epsilon, c_index_ds.max() + epsilon]]
 
-    samples = dataset.as_array()
+    samples = dataset.as_array(mag=mag, c_index=c_index)
 
     if std is None:
         prior = get_priors(bounds, samples)
