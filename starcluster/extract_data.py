@@ -16,30 +16,40 @@ class EquatorialData:
                        'phot_rp_mean_mag']
 
     def __init__(self, path, *, convert=True):
-        # FIXME: Update docstrings
         """
         Class to open an existing file containing astrometric data.
 
-        At instantiation this class reads data from a Gaia EDR3 csv file.
-        This dataset is to be convertend into galactic equatorial coordinates
-        using the method from Hobbs et al., 2021, Ch.4 to convert Gaia
-        EDR3 equatorial data to galactic equatorial coordinates.
+        At instantiation this class reads data from a Gaia EDR3 csv file or
+        from a file containing data already converted from a Gaia EDR3 dataset.
 
-        Use `convert=True` if data is in RA-DEC coordiantes, enabling
-        automatic conversion into galactic coordinates. While galactic
-        longitude and latitude is extracted from data, proper motion in
-        galactic coordinates is evaluated following Hobbs et al., 2021,
-        Ch.4. If data was already converted and saved use `convert=False`,
+        Use of `convert=True` enables automatic conversion into galactic
+        coordinates. It is to be used if data has not been processed before.
+        If used, longitude and latitude are extracted from data, while proper
+        motion in galactic coordinates is evaluated following Hobbs et al.,
+        2021, Ch.4.
+
+        If data was already converted and saved use `convert=False`,
         instead, and the dataset will be read as in galactic components.
 
         Remember that the use of `convert=True` only stores the dataset
-        inside the class instance. Use method `save_dataset()` to save a copy of
+        inside the class instance. See method `save_dataset()` to save a copy of
         the converted dataset.
 
-        Gaia EDR3 csv dasatet must contain the `ref_epoch` column. Any row
-        containing missing data (imported as `Nan`s) is deleted before
-        conversion into galactic coordinates. Finally, the dataset must
-        contain the `source_id` column as it is used to identify stars.
+        A Gaia EDR3 dataset needs to contain (at least) the equatorial
+        coordinates and proper motions ('ra', 'dec', 'pmra', 'pmdec'),
+        'parallax' and 'dr2_radial_velocity' columns. It also needs 'l' and
+        'b' coordinates and the three columns containing mean photometric
+        magnitudes 'phot_g_mean_mag', 'phot_bp_mean_mag' and
+        'phot_rp_mean_mag'. Finally, the dataset must
+        contain the `source_id` column as it is used to identify stars. Any row
+        containing missing data ('NULL' in Gaia EDR3 and imported as `Nan`s) is
+        deleted before conversion into galactic coordinates.
+
+        When an instance of the class is called, with an argument `item`,
+        if `item` is one of ['source_id', 'l', 'b', 'plx', 'pml_star', 'pmb',
+        'v_rad', 'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g', 'g_rp'],
+        the corresponding column from the `gal` attribute is returned.
+        Otherwhise it returns the item-th star from the `gal` attribute.
 
         Parameters
         ----------
@@ -86,8 +96,7 @@ class EquatorialData:
                                    ('rp_mag', float),
                                    ('bp_rp', float),
                                    ('bp_g', float),
-                                   ('g_rp', float),
-                                   ('ref_epoch', float)])
+                                   ('g_rp', float)])
 
         # The matrix to convert from equatorial cartesian coordinates to
         # galactic cartesian components. See Hobbs et al., 2021, Ch.4
@@ -103,23 +112,24 @@ class EquatorialData:
 
     def save_dataset(self, outpath=None):
         """
-        Method of the `Data` class to save the extracted or converted
+        Method of the `Data` class to save the extracted and converted
         galactic equatorial dataset into an external file, whose path is
-        define by `outpath` argument.
+        define by the `outpath` argument.
 
-        Celestial positios are expressed in degrees and parallax in mas.
-        Proper motion's units are mas/yr (note that proper motion in
-        galactic longitude is expressed as `pml* = pml * cos(b)`. Radial
-        velocity are expressed in km/s.
+        Position on the celestial sphere is expressed in degrees and
+        parallax in mas. Proper motion's units are mas/yr (note that proper
+        motion in galactic longitude is expressed as `pml* = pml * cos(b)`.
+        Radial velocity is expressed in km/s. Photometric quantities are
+        expressed in magnitudes.
 
         The saved dataset contains the equivalend of a numpy structured array
-        with fields 'source_id', 'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad'
-        and 'ref_epoch', containing the galactic coordinates for each star.
+        with fields 'source_id', 'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
+        'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g' and 'g_rp'.
 
         Parameters
         ----------
         outpath:
-            `None`, 'str' or 'Path-like'. The path of the output file to save
+            `None` or 'Path-like'. The path of the output file to save
             cartesian coordinates data if a gaia dataset is read. If `None`,
             it saves the data in the current working directory in a file
             named 'gaia_edr3_galactic.txt'.
@@ -133,12 +143,39 @@ class EquatorialData:
                           'l,b,plx,'
                           'pml_star,pmb,v_rad,'
                           'g_mag,bp_mag,rp_mag'
-                          'bp_rp,bp_g,g_rp'                        
-                          'ref_epoch',
+                          'bp_rp,bp_g,g_rp',
                    delimiter=',',
                    comments='')
 
     def as_array(self, *, mag=None, c_index=None):
+        """
+        Method that converts the structured array contained within the `gal`
+        attribute into an array of shape (N_stars, 8). The eight fields are,
+        in order (l, b, plx, pml_star, pmb, v_rad, mag, c_index), where
+
+            `pml_star = mu_l * cos(b)`
+
+        and `mag` and `c_index` are the photometric band and the color index
+        that will be displayed on the plots. These are defined via the `mag`
+        and `c_index` keyword arguments.
+
+        Parameters
+        ----------
+        mag:
+            `str`, either 'g_mag', 'bp_mag', 'rp_mag'. The magnitude in the
+            selected photometric band to be saved in this array.
+            Default is 'g_mag'.
+        c_index:
+            `str`, either 'bp_rp', 'bp_g' or 'g_rp'. The Color index to be
+            saved in this array. Default is 'bp_rp'.
+
+        Returns
+        -------
+        `np.ndarray` of shape (N_stars, 8), containing the six kinematic
+        columns and the selected magnitude and color index for the N_stars
+        stars in the catalog.
+
+        """
         if mag is None:
             mag = 'g_mag'
         if c_index is None:
@@ -236,7 +273,6 @@ class EquatorialData:
         data_gal['bp_rp'] = data_gal['bp_mag'] - data_gal['rp_mag']
         data_gal['bp_g'] = data_gal['bp_mag'] - data_gal['g_mag']
         data_gal['g_rp'] = data_gal['g_mag'] - data_gal['rp_mag']
-        data_gal['ref_epoch'] = data['ref_epoch']
 
         return data_gal
 
@@ -275,6 +311,17 @@ class EquatorialData:
 
     @property
     def A_G_inv(self):
+        """
+        Property of `Data` class. Containes the inverse of the transformation
+        matrix from ICRS coordinates to galactic cartesian coordinates. The
+        exact values are as defined in Hobbs et al., 2021, Ch.4.
+
+        Returns
+        -------
+        `np.ndarray` of shape (3, 3). The inverse matrix of the
+        transformation from ICRS coordinates to galactic coordinates.
+
+        """
         return self.__A_G_inv
 
     def __call__(self, item):
