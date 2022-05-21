@@ -58,11 +58,12 @@ class EquatorialData:
             differences between datasets in galactic cartesian components and as
             a gaia dataset, read below.
         convert:
-            'bool'. If `True`, data is assumed in RA-DEC coordinates and is
+            'bool'. If `True`, data is assumed in ICRS coordinates and is
             converted into galactic coordinates, stored inside the `gal`
             attribute. When `False` data is assumed as already converted into
             galactic coordinates and is directly stored into the `gal`
             attribute. Default is `True`.
+
         """
         self.path = Path(path)
         self.gal = None
@@ -133,6 +134,7 @@ class EquatorialData:
             cartesian coordinates data if a gaia dataset is read. If `None`,
             it saves the data in the current working directory in a file
             named 'gaia_edr3_galactic.txt'.
+
         """
         if outpath is None:
             outpath = Path(os.getcwd()).joinpath('gaia_edr3_galactic.txt')
@@ -313,13 +315,14 @@ class EquatorialData:
     def A_G_inv(self):
         """
         Property of `Data` class. Containes the inverse of the transformation
-        matrix from ICRS coordinates to galactic cartesian coordinates. The
-        exact values are as defined in Hobbs et al., 2021, Ch.4.
+        matrix from galactic coordinates to ICRS coordinates. The exact values
+        are as defined in Hobbs et al., 2021, Ch.4.
 
         Returns
         -------
-        `np.ndarray` of shape (3, 3). The inverse matrix of the
-        transformation from ICRS coordinates to galactic coordinates.
+        `np.ndarray` of shape (3, 3). The transformation matrix from ICRS
+        coordinates to galactic coordinates, named as the inverse matrix from
+        galactic to ICRS coordinates.
 
         """
         return self.__A_G_inv
