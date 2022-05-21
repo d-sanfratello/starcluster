@@ -14,8 +14,8 @@ from .extract_data import EquatorialData
 
 class CornerPlot:
     __keys = ['ra', 'dec', 'l', 'b', 'plx',
-              'pmra', 'pmdec', 'v_rad',
-              'g_mag', 'bp_mag', 'rp_mag',
+              'pmra', 'pmdec', 'v_rad']
+    __mags = ['g_mag', 'bp_mag', 'rp_mag',
               'bp_rp', 'bp_g', 'g_rp']
 
     def __init__(self, *,
@@ -26,20 +26,36 @@ class CornerPlot:
         if expected is not None:
             for k in self.__keys:
                 setattr(self, k, expected[k])
+
+            if mag in self.__mags and mag in expected.keys():
+                self.mag = expected[mag]
+            else:
+                self.mag = None
+
+            if c_index in self.__mags and c_index in expected.keys():
+                self.c_index = expected[c_index]
+            else:
+                self.c_index = None
+
             self.__has_expected = True
         else:
             self.__has_expected = False
 
         self.density = density
         self.dataset = dataset
-        self.mag = mag
-        self.c_index = c_index
+
+        mag_name = mag[:-4].upper()
+        self.mag_name = f'${mag_name}\,[mag]$'
+
+        if c_index == 'bp_rp':
+            self.c_index_name = r'$G_{BP} - G_{RP}\,[mag]$'
+        elif c_index == 'bp_g':
+            self.c_index_name = r'$G_{BP} - G\,[mag]$'
+        elif c_index == 'g_rp':
+            self.c_index_name = r'$G - G_{RP}\,[mag]$'
 
     def __call__(self, sampling_size, *, plot_title=None):
         density_samples = self.density.rvs(sampling_size)
-
-        mag_name = self.mag
-        c_index_name = self.c_index
 
         c = crn(density_samples,
                 bins=int(np.sqrt(sampling_size)),
@@ -51,9 +67,8 @@ class CornerPlot:
                         r'$\mu_{l*}\,[mas\,yr^{-1}]$',
                         r'$\mu_b\,[mas\,yr^{-1}]$',
                         r'$v_{rad}\,[km\,s^{-1}]$',
-                        rf'${mag_name.strip("_mag").upper()}\,[mag]$',
-                        rf'${c_index_name.split("_")[0].upper()} - '
-                        rf'{c_index_name.split("_")[1].upper()}\,[mag]$'],
+                        f'{self.mag_name}',
+                        f'{self.c_index_name}'],
                 hist_kwargs={'density': True,
                              'label': 'DPGMM'})
 
@@ -87,7 +102,7 @@ class CornerPlot:
             data_lines = np.array([
                 self.l, self.b, self.plx,
                 pml_star, pmb, self.v_rad,
-                self.g_mag, self.bp_rp
+                self.mag, self.c_index
             ])
 
             corner.overplot_lines(c, data_lines,
