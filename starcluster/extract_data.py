@@ -213,6 +213,13 @@ class EquatorialData:
 
         return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
 
+    def export_random_subset(self, size, *, mag='g_mag', c_index='bp_rp'):
+        complete_array = self.as_array(mag=mag, c_index=c_index)
+
+        return complete_array[
+               np.random.choice(len(complete_array), size=size, replace=False),
+               :]
+
     def __open_equatorial(self):
         ## FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
