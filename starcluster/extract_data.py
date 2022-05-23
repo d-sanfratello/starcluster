@@ -10,7 +10,6 @@ from .const import PC2KM, YR2S, PC2KPC
 class EquatorialData:
     astrometry_cols = ['source_id', 'ra', 'dec', 'l', 'b',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
-                       'ref_epoch',
                        'phot_g_mean_mag',
                        'phot_bp_mean_mag',
                        'phot_rp_mean_mag']
@@ -70,8 +69,7 @@ class EquatorialData:
 
         self.__names = ['source_id',
                         'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
-                        'g_mag', 'bp_mag', 'rp_mag',
-                        'ref_epoch']
+                        'g_mag', 'bp_mag', 'rp_mag']
         self.eq_dtype = np.dtype([('source_id', np.int64),
                                   ('l', float),
                                   ('b', float),
@@ -83,8 +81,7 @@ class EquatorialData:
                                   ('dr2_radial_velocity', float),
                                   ('phot_g_mean_mag', float),
                                   ('phot_bp_mean_mag', float),
-                                  ('phot_rp_mean_mag', float),
-                                  ('ref_epoch', float)])
+                                  ('phot_rp_mean_mag', float)])
         self.gal_dtype = np.dtype([('source_id', np.int64),
                                    ('l', float),
                                    ('b', float),
