@@ -104,7 +104,7 @@ class EquatorialData:
             [-0.8676661490190047, -0.1980763734312015,  0.4559837761750669]])
 
         if convert:
-            self.gal = self.__open_equatorial()
+            self.gal = self.__open_edr3()
         else:
             self.gal = self.__open_galactic()
 
@@ -210,7 +210,7 @@ class EquatorialData:
 
         return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
 
-    def __open_equatorial(self):
+    def __open_edr3(self):
         ## FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
