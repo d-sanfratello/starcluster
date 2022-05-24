@@ -211,7 +211,7 @@ class EquatorialData:
         return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
 
     def __open_edr3(self):
-        ## FIXME: check these papers and update references
+        # FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
         data = np.genfromtxt(self.path,
