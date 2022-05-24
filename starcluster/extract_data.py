@@ -1,3 +1,4 @@
+import h5py
 import numpy as np
 import os
 
@@ -32,7 +33,7 @@ class EquatorialData:
 
         Remember that the use of `convert=True` only stores the dataset
         inside the class instance. See method `save_dataset()` to save a copy of
-        the converted dataset.
+        the converted dataset in HDF5 format.
 
         A Gaia EDR3 dataset needs to contain (at least) the equatorial
         coordinates and proper motions ('ra', 'dec', 'pmra', 'pmdec'),
@@ -64,7 +65,6 @@ class EquatorialData:
             attribute. Default is `True`.
 
         """
-        self.path = Path(path)
         self.gal = None
 
         self.__names = ['source_id',
@@ -104,15 +104,15 @@ class EquatorialData:
             [-0.8676661490190047, -0.1980763734312015,  0.4559837761750669]])
 
         if convert:
-            self.gal = self.__open_edr3()
+            self.gal = self.__open_edr3(path)
         else:
-            self.gal = self.__open_galactic()
+            self.gal = self.__open_galactic(path)
 
-    def save_dataset(self, outpath=None):
+    def save_dataset(self, name=None):
         """
         Method of the `Data` class to save the extracted and converted
-        galactic equatorial dataset into an external file, whose path is
-        define by the `outpath` argument.
+        galactic equatorial dataset into an external '.hdf5' file, in the
+        current working directory.
 
         Position on the celestial sphere is expressed in degrees and
         parallax in mas. Proper motion's units are mas/yr (note that proper
@@ -126,25 +126,24 @@ class EquatorialData:
 
         Parameters
         ----------
-        outpath:
-            `None` or 'Path-like'. The path of the output file to save
-            cartesian coordinates data if a gaia dataset is read. If `None`,
-            it saves the data in the current working directory in a file
-            named 'gaia_edr3_galactic.txt'.
+        name:
+            `None` or 'string'. The name of the output file to save
+            galactic coordinates data in. If `None`, it saves the data in a file
+            named 'gaia_edr3_galactic.hdf5'. File is saved in the current
+            working directory.
 
         """
-        if outpath is None:
-            outpath = Path(os.getcwd()).joinpath('gaia_edr3_galactic.txt')
+        if name is None:
+            name = 'gaia_edr3_galactic.hdf5'
+        elif name.find(".hdf5") < 0:
+            name += ".hdf5"
 
-        np.savetxt(outpath,
-                   self.gal,
-                   header='source_id,'
-                          'l,b,plx,'
-                          'pml_star,pmb,v_rad,'
-                          'g_mag,bp_mag,rp_mag'
-                          'bp_rp,bp_g,g_rp',
-                   delimiter=',',
-                   comments='')
+        with h5py.File(name, "w") as f:
+            dset = f.create_dataset('data',
+                                    shape=self.gal.shape,
+                                    dtype=self.gal_dtype)
+
+            dset[0:] = self.gal
 
     def as_array(self, *, mag=None, c_index=None):
         """
@@ -210,11 +209,11 @@ class EquatorialData:
 
         return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
 
-    def __open_edr3(self):
+    def __open_edr3(self, path):
         # FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
-        data = np.genfromtxt(self.path,
+        data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
                              filling_values=np.nan,
@@ -231,22 +230,10 @@ class EquatorialData:
 
         return data_gal
 
-    def __open_galactic(self):
-        data = np.genfromtxt(self.path,
-                             delimiter=',',
-                             names=True,
-                             filling_values=np.nan)
+    def __open_galactic(self, path):
+        dset = h5py.File(path, 'r')
 
-        # genfromtxt appears to dislike the use of dtype right away.
-        new_data = np.zeros(data['source_id'].shape, dtype=self.gal_dtype)
-
-        for name in self.gal_dtype.names:
-            if name != 'source_id':
-                new_data[name] = data[name]
-            else:
-                new_data['source_id'] = data['source_id'].astype(np.int64)
-
-        return new_data
+        return dset['data']
 
     def __eq_to_gal(self, data):
         pml_star = []

@@ -128,7 +128,7 @@ def dpgmm(
     if convert:
         if outpath is None:
             outpath = Path(str(path).strip('.csv') + '.txt')
-        dataset.save_dataset(outpath=outpath)
+        dataset.save_dataset(name=outpath)
 
     l = dataset('l')
     b = dataset('b')
