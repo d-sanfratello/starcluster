@@ -1,10 +1,5 @@
-import os
-
-import corner
-import matplotlib.pyplot as plt
 import numpy as np
 
-from corner import corner as crn
 from figaro.mixture import DPGMM
 from figaro.utils import get_priors
 from pathlib import Path
@@ -12,111 +7,72 @@ from pathlib import Path
 from .extract_data import EquatorialData
 
 
-class CornerPlot:
+class ExpectedValues:
     __keys = ['ra', 'dec', 'l', 'b', 'plx',
               'pmra', 'pmdec', 'v_rad']
     __mags = ['g_mag', 'bp_mag', 'rp_mag',
               'bp_rp', 'bp_g', 'g_rp']
+    __data = ['l', 'b', 'plx', 'pml', 'pmb', 'v_rad']
 
-    def __init__(self, *,
-                 density, dataset,
-                 expected=None,
-                 mag='g_mag', c_index='bp_rp'):
+    # The matrix to convert from equatorial cartesian coordinates to
+    # galactic cartesian components. See Hobbs et al., 2021, Ch.4
+    __A_G_inv = np.array([
+        [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
+        [0.4941094278755837, -0.4448296299600112, 0.7469822444972189],
+        [-0.8676661490190047, -0.1980763734312015, 0.4559837761750669]])
 
-        if expected is not None:
-            for k in self.__keys:
+    def __init__(self, expected):
+        for k in self.__keys:
+            try:
                 setattr(self, k, expected[k])
+            except KeyError:
+                raise KeyError(
+                    f"Must include an expected value for {k}."
+                    f"If unknown, use `None`.")
 
-            if mag in self.__mags and mag in expected.keys():
-                self.mag = expected[mag]
+        for m in self.__mags[:3]:
+            if m in expected.keys():
+                self.__mag = expected[m]
             else:
-                self.mag = None
-
-            if c_index in self.__mags and c_index in expected.keys():
-                self.c_index = expected[c_index]
+                self.__mag = np.nan
+        for c in self.__mags[3:]:
+            if c in expected.keys():
+                self.__c_index = expected[c]
             else:
-                self.c_index = None
+                self.__c_index = np.nan
 
-            self.__has_expected = True
-        else:
-            self.__has_expected = False
+        ra_rad = np.deg2rad(self.ra)
+        dec_rad = np.deg2rad(self.dec)
+        l_rad = np.deg2rad(self.l)
+        b_rad = np.deg2rad(self.b)
 
-        self.density = density
-        self.dataset = dataset
+        p_icrs = np.array([-np.sin(ra_rad),
+                           np.cos(ra_rad),
+                           0])
+        q_icrs = np.array([-np.cos(ra_rad) * np.sin(dec_rad),
+                           -np.sin(ra_rad) * np.sin(dec_rad),
+                           np.cos(dec_rad)])
+        p_gal = np.array([-np.sin(l_rad),
+                          np.cos(l_rad),
+                          0])
+        q_gal = np.array([-np.cos(l_rad) * np.sin(b_rad),
+                          -np.sin(l_rad) * np.sin(b_rad),
+                          np.cos(b_rad)])
 
-        mag_name = mag[:-4].upper()
-        self.mag_name = f'${mag_name}\,[mag]$'
+        mu_icrs = p_icrs * self.pmra + q_icrs * self.pmdec
+        mu_gal = self.__A_G_inv.dot(mu_icrs)
 
-        if c_index == 'bp_rp':
-            self.c_index_name = r'$G_{BP} - G_{RP}\,[mag]$'
-        elif c_index == 'bp_g':
-            self.c_index_name = r'$G_{BP} - G\,[mag]$'
-        elif c_index == 'g_rp':
-            self.c_index_name = r'$G - G_{RP}\,[mag]$'
+        self.pml = np.dot(p_gal, mu_gal)
+        self.pmb = np.dot(q_gal, mu_gal)
 
-    def __call__(self, sampling_size, *, plot_title=None):
-        density_samples = self.density.rvs(sampling_size)
+    def __call__(self):
+        arr = []
+        for name in self.__data:
+            arr.append(getattr(self, name))
+        arr.append(self.__mag)
+        arr.append(self.__c_index)
 
-        c = crn(density_samples,
-                bins=int(np.sqrt(sampling_size)),
-                color='dodgerblue',
-                title=plot_title,
-                labels=[r'$l\,[deg]$',
-                        r'$b\,[deg]$',
-                        r'$plx\,[mas]$',
-                        r'$\mu_{l*}\,[mas\,yr^{-1}]$',
-                        r'$\mu_b\,[mas\,yr^{-1}]$',
-                        r'$v_{rad}\,[km\,s^{-1}]$',
-                        f'{self.mag_name}',
-                        f'{self.c_index_name}'],
-                hist_kwargs={'density': True,
-                             'label': 'DPGMM'})
-
-        c.suptitle(plot_title, size=20)
-
-        if self.__has_expected:
-            ra_rad = np.deg2rad(self.ra)
-            dec_rad = np.deg2rad(self.dec)
-            l_rad = np.deg2rad(self.l)
-            b_rad = np.deg2rad(self.b)
-
-            p_icrs = np.array([-np.sin(ra_rad),
-                               np.cos(ra_rad),
-                               0])
-            q_icrs = np.array([-np.cos(ra_rad) * np.sin(dec_rad),
-                               -np.sin(ra_rad) * np.sin(dec_rad),
-                               np.cos(dec_rad)])
-            p_gal = np.array([-np.sin(l_rad),
-                              np.cos(l_rad),
-                              0])
-            q_gal = np.array([-np.cos(l_rad) * np.sin(b_rad),
-                              -np.sin(l_rad) * np.sin(b_rad),
-                              np.cos(b_rad)])
-
-            mu_icrs = p_icrs * self.pmra + q_icrs * self.pmdec
-            mu_gal = self.dataset.A_G_inv.dot(mu_icrs)
-
-            pml_star = np.dot(p_gal, mu_gal)
-            pmb = np.dot(q_gal, mu_gal)
-
-            data_lines = np.array([
-                self.l, self.b, self.plx,
-                pml_star, pmb, self.v_rad,
-                self.mag, self.c_index
-            ])
-
-            corner.overplot_lines(c, data_lines,
-                                  color="C1",
-                                  linewidth=0.5,
-                                  label='Expected')
-            corner.overplot_points(c, data_lines[None],
-                                   marker=".",
-                                   color="C1")
-
-        leg = plt.legend(loc=0, frameon=False, fontsize=15,
-                         bbox_to_anchor=(1 - 0.05, 3))
-
-        return c
+        return arr
 
 
 def dpgmm(

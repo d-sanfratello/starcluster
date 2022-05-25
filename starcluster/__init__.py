@@ -1,1 +1,1 @@
-from .utils import CornerPlot, dpgmm
+from .utils import dpgmm, ExpectedValues
