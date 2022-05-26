@@ -1,1 +1,4 @@
-from .utils import dpgmm, ExpectedValues
+from .utils import A_G_INV
+from .utils import dpgmm
+from .utils import ExpectedValues
+from .utils import save_density

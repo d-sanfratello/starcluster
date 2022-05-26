@@ -1,7 +1,7 @@
 import h5py
 import numpy as np
 
-from .utils import A_G_INV
+from . import utils
 
 
 class EquatorialData:
@@ -277,7 +277,7 @@ class EquatorialData:
 
         # total proper motion in ICRS system and then converted to galactic.
         mu_icrs = p_icrs * data['pmra'] + q_icrs * data['pmdec']
-        mu_gal = A_G_INV.dot(mu_icrs)
+        mu_gal = utils.A_G_INV.dot(mu_icrs)
 
         pml_star = np.dot(p_gal, mu_gal)
         pmb = np.dot(q_gal, mu_gal)
