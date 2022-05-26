@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 
@@ -27,6 +28,34 @@ class ExpectedValues:
     __data = ['l', 'b', 'plx', 'pml', 'pmb', 'v_rad']
 
     def __init__(self, expected):
+        """
+        Class to interpret the expected values for a cluster for the quantities
+        used with the DPGMM, from the equatorial coordinates and relative
+        proper motions, parallax, radial velocity and galactic latitude and
+        longitude.
+
+        Right ascension, declination, galactic longitude and latitude,
+        parallax, radial_velocity, and proper motions in ra and dec are
+        mandatory keys, but photometric band and color index can be omitted
+        and will be set to `np.nan`.
+
+        Parameters
+        ----------
+        expected:
+            'dictionary'. The expected keys are 'ra', 'dec', 'pmra', 'pmdec',
+            'plx', 'v_rad', 'l' and 'b'. Optionally, any of the photometric
+            bands from Gaia can be set (as 'g_mag', 'bp_mag', 'rp_mag') and
+            any of the color indices can be set (as 'bp_rp', 'bp_g' or 'g_rp').
+
+        Returns
+        -------
+        expected:
+            'numpy.ndarray'. When the instance is called, it returns a
+            'np.ndarray' containing the expected values, in order, for 'l',
+            'b', 'plx', 'pml', 'pmb', 'v_rad' and, the photometric band and
+            color index used.
+
+        """
         for k in self.__keys:
             try:
                 setattr(self, k, expected[k])
@@ -124,7 +153,23 @@ def dpgmm(
     return dataset, bounds, prior, mix, density
 
 
-def save_density(density, *, folder='./', file='mixture.json'):
+def save_density(density, *, folder=None, file='mixture.json'):
+    """
+    Function that, passed a `figaro.mixture` object, exports it into
+    a json file.
+
+    Parameters
+    ----------
+    density:
+        `figaro.mixture` object, to be saved for later analysis.
+    folder:
+        `string` or `Path` object. The folder in which the output json file
+        will be saved. Optional (default = `os.getcwd()`).
+    file:
+        `string`. The name of the file to output the json to. Optional (
+        default = `mixture.json').
+
+    """
     dict_ = density.__dict__
 
     for key in dict_.keys():
@@ -137,12 +182,32 @@ def save_density(density, *, folder='./', file='mixture.json'):
 
     s = json.dumps(dict_, indent=4)
 
-    with open(folder+file, 'w') as f:
+    if folder is None:
+        folder = os.getcwd()
+    if file.find('.json') < 0:
+        file += '.json'
+    with open(Path(folder).joinpath(file), 'w') as f:
         json.dump(s, f)
 
 
 def import_density(file):
-    with open(file, 'r') as fjson:
+    """
+    Function that reads a json file containing the parameters for a saved
+    `figaro.mixture` object and returns an instance of such object.
+
+    Parameters
+    ----------
+    file:
+        `string` or `Path`. The path to the json file of the mixture.
+
+    Returns
+    -------
+    density:
+        `figaro.mixture`. An instance of the class containing the data stored ù
+        in the json file.
+
+    """
+    with open(Path(file), 'r') as fjson:
         dictjson = json.load(fjson)
 
     dict_ = json.loads(dictjson)
