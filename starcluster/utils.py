@@ -4,7 +4,7 @@ from figaro.mixture import DPGMM
 from figaro.utils import get_priors
 from pathlib import Path
 
-from .extract_data import EquatorialData
+from .extract_data import Data
 
 
 # The transformation matrix from ICRS coordinates to galactic coordinates,
@@ -81,7 +81,7 @@ def dpgmm(
         path, outpath=None,
         *, convert=True, std=None, epsilon=1e-3,
         mag='g_mag', c_index='bp_rp'):
-    dataset = EquatorialData(path=path, convert=convert)
+    dataset = Data(path=path, convert=convert)
 
     if convert:
         if outpath is None:
