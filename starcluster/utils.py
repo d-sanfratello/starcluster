@@ -111,8 +111,64 @@ class ExpectedValues:
 
 def dpgmm(
         path, outpath=None,
-        *, convert=True, std=None, epsilon=1e-3,
+        *, convert=True, std=None, epsilon=0,
         mag='g_mag', c_index='bp_rp'):
+    """
+    Function running in an automated way the DPGMM analysis. It first loads
+    the data (See 'starcluster.extract_data.Data'), then it determines the
+    bounds from minimum and maximum value for each axis of the dataset.
+
+    If an `epsilon != 0` is passed, then it is subtracted and added to each
+    bound limit, to avoid the issues described in figaro documentation about
+    the probit transform raising an exception when data is sampled on the
+    boundaries. If `epsilon` is passed as `0` (as in the default case),
+    the points corresponding to the boundaries are removed from the sample.
+
+    Then the priors on the hyperparameters are determined with the
+    `figaro.utils.get_priors` function, passing the option argument 'std' to
+    the call.
+
+    Finally, the DPGMM is run.
+
+    Parameters
+    ----------
+    path:
+        'string' or 'Path' object containing the path to the file with the data
+        for the DP.
+    outpath:
+        'string or 'Path' object containing the path to the output file to
+        save the converted data to. It is ignored if `convert = False`.
+        Optional (default = None. See `export_data.Data` documentation for
+        information on this behaviour).
+    convert:
+        'bool'. Keyword argument passed to the `extract_data.Data` class. If
+        data was already converted into pure galactic coordinates, set it to
+        `False`. If data is raw from Gaia Archive, set it to `True`. Optional
+        (default = True).
+    std:
+        `None` or array-like. It contains the keyword argument 'std' to be
+        passed to 'figaro.utils.get_priors`. See `get_priors` docuementation
+        for its behaviour. Optional (default = None).
+    epsilon:
+        number. The margin to be removed from each boundary before passing
+        the bounds keyword argument to `figaro.utils.get_priors` and to
+        `figaro.mixture.DPGMM`. If set to `0`, it removes the data sitting on
+        the bounds from the sample. Optional (default = 0).
+    mag:
+        'string', either `g_mag`, `bp_mag` or `rp_mag`. The photometric band
+        to be used in the inference. Optional (default = 'g_mag').
+    c_index:
+        'string', either `bp_rp`, `bp_g` or `g_rp`. The color index to be used
+        in the inference. Optional (default = 'bp_rp').
+
+    Returns
+    -------
+    'tuple':
+        A tuple of values containing, in order: the dataset as a
+        `export_data.Data` object, the bounds and priors passed to the DPGMM,
+        the mix and density obtained from the inference.
+
+    """
     dataset = Data(path=path, convert=convert)
 
     if convert:
@@ -129,6 +185,8 @@ def dpgmm(
     mag_ds = dataset(mag)
     c_index_ds = dataset(c_index)
 
+    columns_list = [l, b, plx, pml, pmb, v_rad, mag_ds, c_index_ds]
+
     bounds = [[l.min() - epsilon, l.max() + epsilon],
               [b.min() - epsilon, b.max() + epsilon],
               [plx.min() - epsilon, plx.max() + epsilon],
@@ -139,6 +197,15 @@ def dpgmm(
               [c_index_ds.min() - epsilon, c_index_ds.max() + epsilon]]
 
     samples = dataset.as_array(mag=mag, c_index=c_index)
+
+    if epsilon == 0:
+        # FIXME: to be tested.
+        del_idx = []
+        for idx, data_column in enumerate(columns_list):
+            del_idx.append(np.argmin(data_column))
+            del_idx.append(np.argmax(data_column))
+
+        samples = np.delete(samples, del_idx, axis=0)
 
     if std is None:
         prior = get_priors(bounds, samples)
