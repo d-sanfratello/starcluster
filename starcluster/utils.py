@@ -1,6 +1,9 @@
+import json
+
 import numpy as np
 
 from figaro.mixture import DPGMM
+from figaro.mixture import mixture
 from figaro.utils import get_priors
 from pathlib import Path
 
@@ -119,3 +122,38 @@ def dpgmm(
     density = mix.density_from_samples(samples)
 
     return dataset, bounds, prior, mix, density
+
+
+def save_density(density, *, folder='./', file='mixture.json'):
+    dict_ = density.__dict__
+
+    for key in dict_.keys():
+        value = dict_[key]
+
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+
+        dict_[key] = value
+
+    s = json.dumps(dict_, indent=4)
+
+    with open(folder+file, 'w') as f:
+        json.dump(s, f)
+
+
+def import_density(file):
+    with open(file, 'r') as fjson:
+        dictjson = json.load(fjson)
+
+    dict_ = json.loads(dictjson)
+    dict_.pop('log_w')
+
+    for key in dict_.keys():
+        value = dict_[key]
+
+        if isinstance(value, list):
+            dict_[key] = np.array(value)
+
+    density = mixture(**dict_)
+
+    return density
