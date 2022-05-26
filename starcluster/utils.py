@@ -7,19 +7,21 @@ from pathlib import Path
 from .extract_data import EquatorialData
 
 
+# The transformation matrix from ICRS coordinates to galactic coordinates,
+# named as the inverse matrix from galactic to ICRS coordinates. The exact
+# values are as defined in Hobbs et al., 2021, Ch.4.
+A_G_INV = np.array([
+    [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
+    [0.4941094278755837, -0.4448296299600112, 0.7469822444972189],
+    [-0.8676661490190047, -0.1980763734312015, 0.4559837761750669]])
+
+
 class ExpectedValues:
     __keys = ['ra', 'dec', 'l', 'b', 'plx',
               'pmra', 'pmdec', 'v_rad']
     __mags = ['g_mag', 'bp_mag', 'rp_mag',
               'bp_rp', 'bp_g', 'g_rp']
     __data = ['l', 'b', 'plx', 'pml', 'pmb', 'v_rad']
-
-    # The matrix to convert from equatorial cartesian coordinates to
-    # galactic cartesian components. See Hobbs et al., 2021, Ch.4
-    __A_G_inv = np.array([
-        [-0.0548755604162154, -0.8734370902348850, -0.4838350155487132],
-        [0.4941094278755837, -0.4448296299600112, 0.7469822444972189],
-        [-0.8676661490190047, -0.1980763734312015, 0.4559837761750669]])
 
     def __init__(self, expected):
         for k in self.__keys:
@@ -60,7 +62,7 @@ class ExpectedValues:
                           np.cos(b_rad)])
 
         mu_icrs = p_icrs * self.pmra + q_icrs * self.pmdec
-        mu_gal = self.__A_G_inv.dot(mu_icrs)
+        mu_gal = A_G_INV.dot(mu_icrs)
 
         self.pml = np.dot(p_gal, mu_gal)
         self.pmb = np.dot(q_gal, mu_gal)
