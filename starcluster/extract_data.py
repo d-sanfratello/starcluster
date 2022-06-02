@@ -1,11 +1,15 @@
 import h5py
 import numpy as np
 
+from pathlib import Path
+
 from . import utils
 
 
 class EquatorialData:
-    astrometry_cols = ['source_id', 'ra', 'dec', 'l', 'b',
+    astrometry_cols = ['source_id',
+                       'ra', 'dec', 'parallax',
+                       'l', 'b',
                        'pmra', 'pmdec', 'dr2_radial_velocity',
                        'phot_g_mean_mag',
                        'phot_bp_mean_mag',
@@ -116,7 +120,7 @@ class EquatorialData:
         Parameters
         ----------
         name:
-            `None` or 'string'. The name of the output file to save
+            `None`, 'string' or 'Path'. The name of the output file to save
             galactic coordinates data in. If `None`, it saves the data in a file
             named 'gaia_edr3_galactic.hdf5'. File is saved in the current
             working directory.
@@ -124,8 +128,11 @@ class EquatorialData:
         """
         if name is None:
             name = 'gaia_edr3_galactic.hdf5'
-        elif name.find(".hdf5") < 0:
+        elif isinstance(name, str) and name.find(".hdf5") < 0:
             name += ".hdf5"
+            name = Path(name)
+        elif isinstance(name, Path) and name.suffix == "":
+            name.suffix = ".hdf5"
 
         with h5py.File(name, "w") as f:
             dset = f.create_dataset('data',
