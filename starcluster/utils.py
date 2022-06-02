@@ -1,14 +1,35 @@
 import json
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 
+from deprecated import deprecated
+from distutils.spawn import find_executable
+from figaro.credible_regions import ConfidenceArea
+from figaro.marginal import marginalise
 from figaro.mixture import DPGMM
 from figaro.mixture import mixture
-from figaro.utils import get_priors
+from figaro.transform import transform_to_probit
+from figaro.utils import get_priors, recursive_grid
+from matplotlib import rcParams
 from pathlib import Path
+from scipy.special import erfinv
+from scipy.stats import norm as ndist
 
 from .extract_data import Data
+
+if find_executable('latex'):
+    rcParams["text.usetex"] = True
+rcParams["xtick.labelsize"] = 14
+rcParams["ytick.labelsize"] = 14
+rcParams["xtick.direction"] = "in"
+rcParams["ytick.direction"] = "in"
+rcParams["legend.fontsize"] = 12
+rcParams["axes.labelsize"] = 16
+rcParams["axes.grid"] = True
+rcParams["grid.alpha"] = 0.6
+rcParams["contour.negative_linestyle"] = 'solid'
 
 
 # The transformation matrix from ICRS coordinates to galactic coordinates,
@@ -289,3 +310,244 @@ def import_density(file):
     density = mixture(**dict_)
 
     return density
+
+
+@deprecated("This function is here for test purposes only and will likely be "
+            "removed soon. Use figaro.utils.plot_multidim instead.")
+def plot_multidim(draws, samples=None, out_folder='.', name='density',
+                  labels=None, units=None, show=False,
+                  save=True, subfolder=False, n_pts=200, true_value=None,
+                  figsize=7, levels=[0.5, 0.68, 0.9]):
+    """
+    From figaro.utils.py at https://github.com/sterinaldi/figaro
+
+    Plot the recovered multidimensional distribution along with samples from the
+    true distribution (if available) as corner plot, with the single mixture
+    gaussians added over the plot
+
+    Parameters
+    ----------
+        draws:
+            iterable. Container for mixture instances.
+        samples:
+            np.ndarray. Samples from the true distribution (if available)
+        out_folder:
+            str or Path. Output folder
+        name:
+            str. Name to be given to outputs
+        labels:
+            list-of-str. LaTeX-style quantity label, for plotting purposes
+        units:
+            list-of-str. LaTeX-style quantity unit, for plotting purposes
+        save:
+            bool. Whether to save the plot or not
+        show:
+            bool. Whether to show the plot during the run or not
+        subfolder:
+            bool. Whether to save in a dedicated subfolder
+        n_pts:
+            int. Number of grid points (same for each dimension)
+        true_value:
+            iterable. True value to plot
+        figsize:
+            double. Figure size (matplotlib)
+        levels:
+            iterable. Credible levels to plot
+    """
+
+    dim = draws[0].dim
+    rec_label = r'\mathrm{DPGMM}'
+
+    if labels is None:
+        labels = ['$x_{0}$'.format(i + 1) for i in range(dim)]
+    else:
+        labels = ['${0}$'.format(l) for l in labels]
+
+    if units is not None:
+        labels = [l[:-1] + r'\ [{0}]$'.format(u) if not u == '' else l for l, u
+                  in zip(labels, units)]
+
+    levels = np.atleast_1d(levels)
+
+    all_bounds = np.atleast_2d([d.bounds for d in draws])
+    x_min = np.min(all_bounds, axis=-1).max(axis=0)
+    x_max = np.max(all_bounds, axis=-1).min(axis=0)
+
+    bounds = np.array([x_min, x_max]).T
+    K = dim
+    factor = 2.0  # size of one side of one panel
+    lbdim = 0.5 * factor  # size of left/bottom margin
+    trdim = 0.2 * factor  # size of top/right margin
+    whspace = 0.1  # w/hspace size
+    plotdim = factor * dim + factor * (K - 1.0) * whspace
+    dim_plt = lbdim + plotdim + trdim
+
+    fig, axs = plt.subplots(K, K, figsize=(figsize, figsize))
+    # Format the figure.
+    lb = lbdim / dim_plt
+    tr = (lbdim + plotdim) / dim_plt
+    fig.subplots_adjust(left=lb, bottom=lb, right=tr, top=tr, wspace=whspace,
+                        hspace=whspace)
+
+    # 1D plots (diagonal)
+    for column in range(K):
+        ax = axs[column, column]
+        # Marginalise over all uninterested columns
+        dims = list(np.arange(dim))
+        dims.remove(column)
+        marg_draws = marginalise(draws, dims)
+        # Credible regions
+        lim = bounds[column]
+        x = np.linspace(lim[0], lim[1], n_pts + 2)[1:-1]
+        dx = x[1] - x[0]
+
+        probs = np.array([d.pdf(x) for d in marg_draws])
+
+        percentiles = [50, 5, 16, 84, 95]
+        p = {}
+        for perc in percentiles:
+            p[perc] = np.percentile(probs, perc, axis=0)
+        norm = p[50].sum() * dx
+        for perc in percentiles:
+            p[perc] = p[perc] / norm
+
+        # Samples (if available)
+        if samples is not None:
+            ax.hist(samples[:, column],
+                    bins=int(np.sqrt(len(samples[:, column]))), histtype='step',
+                    density=True)
+        # CR
+        ax.fill_between(x, p[95], p[5], color='mediumturquoise', alpha=0.5)
+        ax.fill_between(x, p[84], p[16], color='darkturquoise', alpha=0.5)
+        if true_value is not None:
+            if true_value[column] is not None:
+                ax.axvline(true_value[column], c='orangered', lw=0.5)
+        ax.plot(x, p[50], lw=0.7, alpha=0.2, color='steelblue')
+
+        # new again, to correctly setup limits for plots on the diagonals.
+        ax.set_xlim(bounds[column, 0], bounds[column, 1])
+
+        # plot gaussians - This is new here
+        pts = np.linspace(bounds[column, 0], bounds[column, 1], 102)[1:-1]
+        x_probit = transform_to_probit(pts, np.atleast_2d(bounds[column]))
+        parallax_thr = transform_to_probit(6.58, np.atleast_2d(bounds[2]))
+        # Marginalise over all uninteresting columns
+        for w, mu, var in zip(draws[0].w, draws[0].means, draws[0].covs):
+            mu_g = mu[column]
+            sigma = np.sqrt(var[column, column])
+            pdf = ndist(loc=mu_g, scale=sigma)
+            y_pts = w * pdf.pdf(x_probit)
+
+            interval = bounds[column, 1] - bounds[column, 0]
+            cdf = (pts - bounds[column, 0]) / interval
+            jacobian_probit = np.sqrt(2*np.pi) * np.exp(erfinv(2 * cdf - 1)**2)
+            cdf_probit = 1 / interval
+
+            y_pts *= jacobian_probit * cdf_probit
+            if mu[2] > parallax_thr:
+                ax.plot(pts, y_pts, lw=0.5, color='red')
+            else:
+                ax.plot(pts, y_pts, lw=0.3, color='darkgreen')
+
+        if column < K - 1:
+            ax.set_xticks([])
+            ax.set_yticks([])
+        elif column == K - 1:
+            ax.set_yticks([])
+            if labels is not None:
+                ax.set_xlabel(labels[-1])
+            ticks = np.linspace(lim[0], lim[1], 5)
+            ax.set_xticks(ticks)
+            [l.set_rotation(45) for l in ax.get_xticklabels()]
+
+    # 2D plots (off-diagonal)
+    for row in range(K):
+        for column in range(K):
+            ax = axs[row, column]
+            ax.grid(visible=False)
+            if column > row:
+                ax.set_frame_on(False)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                continue
+            elif column == row:
+                continue
+
+            # Marginalise
+            dims = list(np.arange(dim))
+            dims.remove(column)
+            dims.remove(row)
+            marg_draws = marginalise(draws, dims)
+
+            # Credible regions
+            lim = bounds[[row, column]]
+            grid, dgrid = recursive_grid(lim[::-1],
+                                         np.ones(2, dtype=int) * int(n_pts))
+
+            x = np.linspace(lim[0, 0], lim[0, 1], n_pts + 2)[1:-1]
+            y = np.linspace(lim[1, 0], lim[1, 1], n_pts + 2)[1:-1]
+
+            dd = np.array([d.pdf(grid) for d in marg_draws])
+            median = np.percentile(dd, 50, axis=0)
+            median = median / (median.sum() * np.prod(dgrid))
+            median = median.reshape(n_pts, n_pts)
+
+            X, Y = np.meshgrid(x, y)
+            with np.errstate(divide='ignore'):
+                logmedian = np.nan_to_num(np.log(median), nan=-np.inf,
+                                          neginf=-np.inf)
+            _, _, levs = ConfidenceArea(logmedian, x, y, adLevels=levels)
+            ax.contourf(Y, X, np.exp(logmedian), cmap='Blues', levels=100)
+            if true_value is not None:
+                if true_value[row] is not None:
+                    ax.axhline(true_value[row], c='orangered', lw=0.5)
+                if true_value[column] is not None:
+                    ax.axvline(true_value[column], c='orangered', lw=0.5)
+                if true_value[column] is not None and true_value[
+                    row] is not None:
+                    ax.plot(true_value[column], true_value[row],
+                            color='orangered', marker='s', ms=3)
+            c1 = ax.contour(Y, X, logmedian, np.sort(levs), colors='k',
+                            linewidths=0.3)
+            if rcParams["text.usetex"] is True:
+                ax.clabel(c1, fmt={l: '{0:.0f}\\%'.format(100 * s) for l, s in
+                                   zip(c1.levels, np.sort(levels)[::-1])},
+                          fontsize=3)
+            else:
+                ax.clabel(c1, fmt={l: '{0:.0f}\\%'.format(100 * s) for l, s in
+                                   zip(c1.levels, np.sort(levels)[::-1])},
+                          fontsize=3)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            if column == 0:
+                ax.set_ylabel(labels[row])
+                ticks = np.linspace(lim[0, 0], lim[0, 1], 5)
+                ax.set_yticks(ticks)
+                [l.set_rotation(45) for l in ax.get_yticklabels()]
+            if row == K - 1:
+                ticks = np.linspace(lim[1, 0], lim[1, 1], 5)
+                ax.set_xticks(ticks)
+                [l.set_rotation(45) for l in ax.get_xticklabels()]
+                ax.set_xlabel(labels[column])
+
+            elif row < K - 1:
+                ax.set_xticks([])
+            elif column == 0:
+                ax.set_ylabel(labels[row])
+
+    if show:
+        plt.show()
+    if save:
+        if not subfolder:
+            fig.savefig(Path(out_folder, '{0}.pdf'.format(name)),
+                        bbox_inches='tight')
+        else:
+            if not Path(out_folder, 'density').exists():
+                try:
+                    Path(out_folder, 'density').mkdir()
+                except FileExistsError:
+                    pass
+            fig.savefig(Path(out_folder, 'density', '{0}.pdf'.format(name)),
+                        bbox_inches='tight')
+    plt.close()
