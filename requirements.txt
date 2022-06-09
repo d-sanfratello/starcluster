@@ -6,7 +6,6 @@ h5py
 astropy~=4.3.1
 pytest
 scipy~=1.7.1
-git+https://github.com/sterinaldi/figaro
 
 corner~=2.2.1
 setuptools~=61.2.0
