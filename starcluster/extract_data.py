@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 
+from zero_point import zpt
 from pathlib import Path
 
 from . import utils
@@ -209,6 +210,9 @@ class EquatorialData:
         # FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
+        # FIXME: checked papers:
+        # 10.1051/0004-6361/202039653 - Parallax bias (Lindegren+2021a)
+        # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
         data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
@@ -219,6 +223,9 @@ class EquatorialData:
         # for gaiaedr3.gaia_source_dr2_radial_velocity, since many objects do
         # not have this measure).
         for col in self.astrometry_cols:
+            # FIXME: Add check for 'col'. If 'parallax', it should apply the
+            #  correction from Lindegren+, 2021.
+            # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
