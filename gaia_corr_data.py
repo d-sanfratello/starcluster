@@ -15,7 +15,7 @@ from zero_point import zpt
        'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr', 'ruwe',
        'radial_velocity', 'radial_velocity_error', 'l', 'b',
        'nu_eff_used_in_astrometry', 'pseudocolour', 'astrometric_params_solved',
-       'ecl_lat', 'grvs_mag']
+       'ecl_lat', 'grvs_mag', 'rv_template_teff']
 '''
 
 
