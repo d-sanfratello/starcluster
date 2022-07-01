@@ -57,14 +57,11 @@ def f_sigma_wrapper(df_row):
 
     f_sigma = np.zeros_like(g_rvs_mag)
 
-    # if other_src[0].size:
     f_sigma[other_src] = np.ones_like(other_src)
-    # if fainter_src[0].size:
     f_sigma[fainter_src] = _f_sigma_polynomial(g_rvs_mag[fainter_src],
-                                                   *pars_fainter)
-    # if brighter_src[0].size:
+                                               *pars_fainter)
     f_sigma[brighter_src] = _f_sigma_polynomial(g_rvs_mag[brighter_src],
-                                                    *pars_brighter)
+                                                *pars_brighter)
 
     return f_sigma
 
