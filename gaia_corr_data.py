@@ -13,7 +13,8 @@ from zero_point import zpt
        'pmdec_error', 'ra_dec_corr', 'ra_parallax_corr', 'ra_pmra_corr',
        'ra_pmdec_corr', 'dec_parallax_corr', 'dec_pmra_corr', 'dec_pmdec_corr',
        'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr', 'ruwe',
-       'radial_velocity', 'radial_velocity_error', 'l', 'b', 'ecl_lon',
+       'radial_velocity', 'radial_velocity_error', 'l', 'b',
+       'nu_eff_used_in_astrometry', 'pseudocolour', 'astrometric_params_solved',
        'ecl_lat']
 '''
 
@@ -43,8 +44,6 @@ def read_data(file):
              'ra_parallax_corr', 'ra_pmra_corr', 'ra_pmdec_corr', 
              'dec_parallax_corr', 'dec_pmra_corr', 'dec_pmdec_corr', 
              'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr']
-    # fixme: phot_g_mean_mag, nu_eff_used_in_astrometry,
-    #        pseudocolour, ecl_lat, astrometric_params_solved
     df = pd.read_csv(file)
 
     # Parallax zero point correction
