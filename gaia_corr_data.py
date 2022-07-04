@@ -2,6 +2,7 @@ import numpy as np
 import optparse as op
 import pandas as pd
 
+from scipy.sparse import block_diag
 from scipy.stats import multivariate_normal as mn
 from pathlib import Path
 from tqdm import tqdm
@@ -15,7 +16,7 @@ from zero_point import zpt
        'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr', 'ruwe',
        'radial_velocity', 'radial_velocity_error', 'l', 'b',
        'nu_eff_used_in_astrometry', 'pseudocolour', 'astrometric_params_solved',
-       'ecl_lat', 'grvs_mag', 'rv_template_teff']
+       'ecl_lat', 'grvs_mag', 'rv_template_teff', 'astrometric_primary_flag']
 '''
 
 
@@ -92,6 +93,16 @@ def v_rad_wrapper(df_row):
     v_rad_bias[hot_stars] = 7.98 - 1.135 * g_rvs_mag[hot_stars]
 
     return v_rad_bias
+
+
+def cov_from_attitude(df, covs):
+    primary_sources = df[df['astrometric_primary_flag'] is True]
+    p_src = primary_sources
+
+    secondary_sources = df[df['astrometric_primary_flag'] is False]
+    s_src = secondary_sources
+
+    P = block_diag(covs)
     
 
 def read_data(file):
@@ -123,6 +134,10 @@ def read_data(file):
     covs = np.array([
         fill_matrix(*[df[name][i] for name in names]
                     ) for i in range(len(means))])
+
+    # Error characterization as in Holl, B. and Lindegren L., A&A, 543,
+    # A14 (2012)
+    covs_primary = cov_from_attitude(df, covs)
 
     print([df['ra'].max(), df['dec'].max(), df['parallax'].max(),
            df['pmra'].max(), df['pmdec'].max(), df['radial_velocity'].max()])
