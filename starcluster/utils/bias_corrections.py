@@ -90,15 +90,19 @@ def pmra_bias_correction(data):
     g_mag_min = table1[0]
     g_mag_max = table1[1]
 
-    if g_mag < 13:
-        # pick the appropriate omegaXYZ for the source’s magnitude:
-        omega_x = table1[2][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
-        omega_y = table1[3][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
-        omega_z = table1[4][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
+    #if g_mag < 13:
+    # pick the appropriate omegaXYZ for the source’s magnitude:
+    # fixme: update this with vectorization
+    omega_x = table1[2][(g_mag_min <= g_mag[corrected]) &
+                        (g_mag_max > g_mag[corrected])][0]
+    omega_y = table1[3][(g_mag_min <= g_mag[corrected]) &
+                        (g_mag_max > g_mag[corrected])][0]
+    omega_z = table1[4][(g_mag_min <= g_mag[corrected]) &
+                        (g_mag_max > g_mag[corrected])][0]
 
-        pmra_corr[corrected] = -1 * _sind(dec) * _cosd(ra) * omega_x \
-                               - _sind(dec) * _sind(ra) * omega_y \
-                               + _cosd(dec) * omega_z
+    pmra_corr[corrected] = -1 * _sind(dec) * _cosd(ra) * omega_x \
+                           - _sind(dec) * _sind(ra) * omega_y \
+                           + _cosd(dec) * omega_z
 
     return pmra_corr / 1000.
 
