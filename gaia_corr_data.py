@@ -202,7 +202,7 @@ def read_data(file):
 
     # Radial Velocity bias correction
     # (Katz et al. (2022), Blomme et al. (2022))
-    v_rad_bias = df.apply(v_rad_wrapper, axis=1)
+    v_rad_corr = df.apply(v_rad_wrapper, axis=1)
 
     # Proper motion bias correction
     # (Cantat-Gaudin and Brandt, 2021)
@@ -213,7 +213,7 @@ def read_data(file):
                       df['parallax'] - zero_point,
                       df['pmra'] - pmra_corr,
                       df['pmdec'] - pmdec_corr,
-                      df['radial_velocity'] - v_rad_bias]).T
+                      df['radial_velocity'] - v_rad_corr]).T
     covs = np.array([
         fill_matrix(*[df[name][i] for name in names]
                     ) for i in range(len(means))])
