@@ -227,34 +227,32 @@ class EquatorialData:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
-        for col in self.astrometry_cols:
-            # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
-            if col == 'parallax':
-                # Parallax zero point correction
-                # (Lindegren et al (A&A, 649, A4, 2021))
-                zpt.load_tables()
-                zero_point = zpt.get_zpt(data['phot_g_mean_mag'],
-                                         data['nu_eff_used_in_astrometry'],
-                                         data['pseudocolour'],
-                                         data['ecl_lat'],
-                                         data['astrometric_params_solved'])
+        # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
+        # Parallax zero point correction
+        # (Lindegren et al (A&A, 649, A4, 2021))
+        zpt.load_tables()
+        zero_point = zpt.get_zpt(data['phot_g_mean_mag'],
+                                 data['nu_eff_used_in_astrometry'],
+                                 data['pseudocolour'],
+                                 data['ecl_lat'],
+                                 data['astrometric_params_solved'])
 
-                data[col] -= zero_point
-            elif col == 'radial_velocity':
-                # Radial Velocity bias correction
-                # (Katz et al. (2022), Blomme et al. (2022))
-                v_rad_corr = v_rad_bias_correction(data)
-                data[col] -= v_rad_corr
-            elif col == 'pmra':
-                # Proper motion bias correction
-                # (Cantat-Gaudin and Brandt, 2021)
-                pmra_corr = pmra_bias_correction(data)
-                data[col] -= pmra_corr
-            elif col == 'pmdec':
-                # Proper motion bias correction
-                # (Cantat-Gaudin and Brandt, 2021)
-                pmdec_corr = pmdec_bias_correction(data)
-                data[col] -= pmdec_corr
+        data['parallax'] -= zero_point
+
+        # Radial Velocity bias correction
+        # (Katz et al. (2022), Blomme et al. (2022))
+        v_rad_corr = v_rad_bias_correction(data)
+        data['radial_velocity'] -= v_rad_corr
+
+        # Proper motion bias correction
+        # (Cantat-Gaudin and Brandt, 2021)
+        pmra_corr = pmra_bias_correction(data)
+        data['pmra'] -= pmra_corr
+
+        # Proper motion bias correction
+        # (Cantat-Gaudin and Brandt, 2021)
+        pmdec_corr = pmdec_bias_correction(data)
+        data['pmdec'] -= pmdec_corr
 
         data_gal = self.__eq_to_gal(data)
 
