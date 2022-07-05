@@ -10,18 +10,26 @@ from . import utils
 class EquatorialData:
     astrometry_cols = ['source_id',
                        'ra', 'dec', 'parallax',
+                       'pmra', 'pmdec', 'ruwe',
+                       'radial_velocity',
                        'l', 'b',
-                       'pmra', 'pmdec', 'dr2_radial_velocity',
-                       'phot_g_mean_mag',
+                       'nu_eff_used_in_astrometry', 'pseudocolour',
+                       'astrometric_params_solved',
+                       'ecl_lat', 'grvs_mag',
+                       'rv_template_teff', 'astrometric_primary_flag',
+                       'phot_g_mean_mag']
+
+    photometry_cols = ['phot_g_mean_mag',
                        'phot_bp_mean_mag',
                        'phot_rp_mean_mag']
 
     def __init__(self, path, *, convert=True):
+        # fixme: check docstring
         """
         Class to open an existing file containing astrometric data.
 
-        At instantiation this class reads data from a Gaia EDR3 csv file or
-        from a file containing data already converted from a Gaia EDR3 dataset.
+        At instantiation this class reads data from a Gaia DR3 csv file or
+        from a file containing data already converted from a Gaia DR3 dataset.
 
         Use of `convert=True` enables automatic conversion into galactic
         coordinates. It is to be used if data has not been processed before.
@@ -36,14 +44,14 @@ class EquatorialData:
         inside the class instance. See method `save_dataset()` to save a copy of
         the converted dataset in HDF5 format.
 
-        A Gaia EDR3 dataset needs to contain (at least) the equatorial
+        A Gaia DR3 dataset needs to contain (at least) the equatorial
         coordinates and proper motions ('ra', 'dec', 'pmra', 'pmdec'),
         'parallax' and 'dr2_radial_velocity' columns. It also needs 'l' and
         'b' coordinates and the three columns containing mean photometric
         magnitudes 'phot_g_mean_mag', 'phot_bp_mean_mag' and
         'phot_rp_mean_mag'. Finally, the dataset must
         contain the `source_id` column as it is used to identify stars. Any row
-        containing missing data ('NULL' in Gaia EDR3 and imported as `Nan`s) is
+        containing missing data ('NULL' in Gaia DR3 and imported as `Nan`s) is
         deleted before conversion into galactic coordinates.
 
         When an instance of the class is called, with an argument `item`,
@@ -69,8 +77,8 @@ class EquatorialData:
         self.gal = None
 
         self.__names = ['source_id',
-                        'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
-                        'g_mag', 'bp_mag', 'rp_mag']
+                        'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad']
+        self.__phot_names = ['g_mag', 'bp_mag', 'rp_mag']
         self.eq_dtype = np.dtype([('source_id', np.int64),
                                   ('l', float),
                                   ('b', float),
@@ -79,30 +87,22 @@ class EquatorialData:
                                   ('parallax', float),
                                   ('pmra', float),
                                   ('pmdec', float),
-                                  ('dr2_radial_velocity', float),
-                                  ('phot_g_mean_mag', float),
-                                  ('phot_bp_mean_mag', float),
-                                  ('phot_rp_mean_mag', float)])
+                                  ('radial_velocity', float)])
         self.gal_dtype = np.dtype([('source_id', np.int64),
                                    ('l', float),
                                    ('b', float),
                                    ('plx', float),
                                    ('pml_star', float),
                                    ('pmb', float),
-                                   ('v_rad', float),
-                                   ('g_mag', float),
-                                   ('bp_mag', float),
-                                   ('rp_mag', float),
-                                   ('bp_rp', float),
-                                   ('bp_g', float),
-                                   ('g_rp', float)])
+                                   ('v_rad', float)])
 
         if convert:
-            self.gal = self.__open_edr3(path)
+            self.gal = self.__open_dr3(path)
         else:
             self.gal = self.__open_galactic(path)
 
     def save_dataset(self, name=None):
+        # fixme: check docstring
         """
         Method of the `Data` class to save the extracted and converted
         galactic equatorial dataset into an external '.hdf5' file, in the
@@ -128,7 +128,7 @@ class EquatorialData:
 
         """
         if name is None:
-            name = 'gaia_edr3_galactic.hdf5'
+            name = 'gaia_dr3_galactic.hdf5'
         elif isinstance(name, str) and name.find(".hdf5") < 0:
             name += ".hdf5"
             name = Path(name)
@@ -143,6 +143,7 @@ class EquatorialData:
             dset[0:] = self.gal
 
     def as_array(self, *, mag=None, c_index=None):
+        # fixme: check docstring
         """
         Method that converts the structured array contained within the `gal`
         attribute into an array of shape (N_stars, 8). The eight fields are,
@@ -171,17 +172,17 @@ class EquatorialData:
         stars in the catalog.
 
         """
-        if mag is None:
-            mag = 'g_mag'
-        if c_index is None:
-            c_index = 'bp_rp'
-
-        if mag not in ['g_mag', 'bp_mag', 'rp_mag']:
-            raise ValueError(
-                "Magnitude has to be either `g_mag`, `bp_mag` or `rp_mag`.")
-        if c_index not in ['bp_rp', 'bp_g', 'g_rp']:
-            raise ValueError(
-                "Magnitude has to be either `bp_rp`, `bp_g` or `g_rp`.")
+        # if mag is None:
+        #     mag = 'g_mag'
+        # if c_index is None:
+        #     c_index = 'bp_rp'
+        #
+        # if mag not in ['g_mag', 'bp_mag', 'rp_mag']:
+        #     raise ValueError(
+        #         "Magnitude has to be either `g_mag`, `bp_mag` or `rp_mag`.")
+        # if c_index not in ['bp_rp', 'bp_g', 'g_rp']:
+        #     raise ValueError(
+        #         "Magnitude has to be either `bp_rp`, `bp_g` or `g_rp`.")
 
         l = self('l')
         b = self('b')
@@ -190,23 +191,24 @@ class EquatorialData:
         pmb = self('pmb')
         v_rad = self('v_rad')
 
-        if mag == 'g_mag':
-            mag = self('g_mag')
-        elif mag == 'bp_mag':
-            mag = self('bp_mag')
-        elif mag == 'rp_mag':
-            mag = self('rp_mag')
+        # if mag == 'g_mag':
+        #     mag = self('g_mag')
+        # elif mag == 'bp_mag':
+        #     mag = self('bp_mag')
+        # elif mag == 'rp_mag':
+        #     mag = self('rp_mag')
+        #
+        # if c_index == 'bp_rp':
+        #     c_index = self('bp_rp')
+        # elif c_index == 'bp_g':
+        #     c_index = self('bp_g')
+        # elif c_index == 'g_rp':
+        #     c_index = self('g_rp')
 
-        if c_index == 'bp_rp':
-            c_index = self('bp_rp')
-        elif c_index == 'bp_g':
-            c_index = self('bp_g')
-        elif c_index == 'g_rp':
-            c_index = self('g_rp')
+        # return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
+        return np.vstack((l, b, plx, pml, pmb, v_rad)).T
 
-        return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
-
-    def __open_edr3(self, path):
+    def __open_dr3(self, path):
         # FIXME: check these papers and update references
         # 10.1051/0004-6361/201832964 - parallax
         # 10.1051/0004-6361/201832727 - astrometric solution
@@ -216,12 +218,15 @@ class EquatorialData:
         data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
-                             filling_values=np.nan,
-                             dtype=self.eq_dtype)
+                             filling_values=np.nan),
+                             #dtype=self.eq_dtype)
 
-        # Data containing NaNs in astrometry columns are discarded (useful
-        # for gaiaedr3.gaia_source_dr2_radial_velocity, since many objects do
-        # not have this measure).
+        # data['source_id'] = data['source_id'].astype(np.int64)
+        # data['astrometric_params_solved'] = data[
+        #     'astrometric_params_solved'].astype(bytes)
+        # data['astrometric_primary_flag'].astype(bool)
+
+        # Data containing NaNs in astrometry columns are discarded.
         for col in self.astrometry_cols:
             # FIXME: Add check for 'col'. If 'parallax', it should apply the
             #  correction from Lindegren+, 2021.
@@ -255,13 +260,13 @@ class EquatorialData:
         data_gal['plx'] = data['parallax']
         data_gal['pml_star'] = pml_star
         data_gal['pmb'] = pmb
-        data_gal['v_rad'] = data['dr2_radial_velocity']
-        data_gal['g_mag'] = data['phot_g_mean_mag']
-        data_gal['bp_mag'] = data['phot_bp_mean_mag']
-        data_gal['rp_mag'] = data['phot_rp_mean_mag']
-        data_gal['bp_rp'] = data_gal['bp_mag'] - data_gal['rp_mag']
-        data_gal['bp_g'] = data_gal['bp_mag'] - data_gal['g_mag']
-        data_gal['g_rp'] = data_gal['g_mag'] - data_gal['rp_mag']
+        data_gal['v_rad'] = data['radial_velocity']
+        # data_gal['g_mag'] = data['phot_g_mean_mag']
+        # data_gal['bp_mag'] = data['phot_bp_mean_mag']
+        # data_gal['rp_mag'] = data['phot_rp_mean_mag']
+        # data_gal['bp_rp'] = data_gal['bp_mag'] - data_gal['rp_mag']
+        # data_gal['bp_g'] = data_gal['bp_mag'] - data_gal['g_mag']
+        # data_gal['g_rp'] = data_gal['g_mag'] - data_gal['rp_mag']
 
         return data_gal
 
