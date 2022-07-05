@@ -90,15 +90,25 @@ def pmra_bias_correction(data):
     g_mag_min = table1[0]
     g_mag_max = table1[1]
 
-    #if g_mag < 13:
     # pick the appropriate omegaXYZ for the source’s magnitude:
-    # fixme: update this with vectorization
-    omega_x = table1[2][(g_mag_min <= g_mag[corrected]) &
-                        (g_mag_max > g_mag[corrected])][0]
-    omega_y = table1[3][(g_mag_min <= g_mag[corrected]) &
-                        (g_mag_max > g_mag[corrected])][0]
-    omega_z = table1[4][(g_mag_min <= g_mag[corrected]) &
-                        (g_mag_max > g_mag[corrected])][0]
+    omega_x = np.array([
+        table1[2][(g_mag_min <= mag) &
+                  (g_mag_max > mag)][0]
+        for mag in g_mag[corrected]
+    ])
+    omega_y = np.array([
+        table1[3][(g_mag_min <= mag) &
+                  (g_mag_max > mag)][0]
+        for mag in g_mag[corrected]
+    ])
+    omega_z = np.array([
+        table1[4][(g_mag_min <= mag) &
+                  (g_mag_max > mag)][0]
+        for mag in g_mag[corrected]
+    ])
+
+    ra = ra[corrected]
+    dec = dec[corrected]
 
     pmra_corr[corrected] = -1 * _sind(dec) * _cosd(ra) * omega_x \
                            - _sind(dec) * _sind(ra) * omega_y \
@@ -129,11 +139,20 @@ def pmdec_bias_correction(data):
     g_mag_min = table1[0]
     g_mag_max = table1[1]
 
-    if g_mag < 13:
-        # pick the appropriate omegaXYZ for the source’s magnitude:
-        omega_x = table1[2][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
-        omega_y = table1[3][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
+    # pick the appropriate omegaXYZ for the source’s magnitude:
+    omega_x = np.array([
+        table1[2][(g_mag_min <= mag) &
+                  (g_mag_max > mag)][0]
+        for mag in g_mag[corrected]
+    ])
+    omega_y = np.array([
+        table1[3][(g_mag_min <= mag) &
+                  (g_mag_max > mag)][0]
+        for mag in g_mag[corrected]
+    ])
 
-        pmdec_corr[corrected] = _sind(ra) * omega_x - _cosd(ra) * omega_y
+    ra = ra[corrected]
+
+    pmdec_corr[corrected] = _sind(ra) * omega_x - _cosd(ra) * omega_y
 
     return pmdec_corr / 1000.
