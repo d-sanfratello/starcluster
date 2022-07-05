@@ -16,11 +16,12 @@ class EquatorialData:
                        'pmra', 'pmdec', 'ruwe',
                        'radial_velocity',
                        'l', 'b',
-                       'nu_eff_used_in_astrometry', 'pseudocolour',
                        'astrometric_params_solved',
                        'ecl_lat', 'grvs_mag',
                        'rv_template_teff', 'astrometric_primary_flag',
                        'phot_g_mean_mag']
+
+    nu_for_solution = ['nu_eff_used_in_astrometry', 'pseudocolour']
 
     photometry_cols = ['phot_g_mean_mag',
                        'phot_bp_mean_mag',
@@ -215,16 +216,11 @@ class EquatorialData:
         # FIXME: checked papers:
         # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
 
-        dtype = {name: float for name in self.astrometry_cols}
-        dtype['source_id'] = np.int64
-        dtype['astrometric_params_solved'] = bytes
-        dtype['astrometric_primary_flag'] = bool
-
         data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
                              filling_values=np.nan,
-                             dtype=dtype)
+                             dtype=None)
 
         # Data containing NaNs in astrometry columns are discarded.
         for col in self.astrometry_cols:
