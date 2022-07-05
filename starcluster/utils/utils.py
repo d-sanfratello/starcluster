@@ -132,8 +132,9 @@ class ExpectedValues:
 
 def dpgmm(
         path, outpath=None,
-        *, convert=True, std=None, epsilon=0,
-        mag='g_mag', c_index='bp_rp'):
+        *, convert=True, std=None, epsilon=0):#,
+        # mag='g_mag', c_index='bp_rp'):
+    # fixme: check docstring
     """
     Function running in an automated way the DPGMM analysis. It first loads
     the data (See 'starcluster.extract_data.Data'), then it determines the
@@ -203,21 +204,21 @@ def dpgmm(
     pml = dataset('pml_star')
     pmb = dataset('pmb')
     v_rad = dataset('v_rad')
-    mag_ds = dataset(mag)
-    c_index_ds = dataset(c_index)
+    # mag_ds = dataset(mag)
+    # c_index_ds = dataset(c_index)
 
-    columns_list = [l, b, plx, pml, pmb, v_rad, mag_ds, c_index_ds]
+    columns_list = [l, b, plx, pml, pmb, v_rad]#, mag_ds, c_index_ds]
 
     bounds = [[l.min() - epsilon, l.max() + epsilon],
               [b.min() - epsilon, b.max() + epsilon],
               [plx.min() - epsilon, plx.max() + epsilon],
               [pml.min() - epsilon, pml.max() + epsilon],
               [pmb.min() - epsilon, pmb.max() + epsilon],
-              [v_rad.min() - epsilon, v_rad.max() + epsilon],
-              [mag_ds.min() - epsilon, mag_ds.max() + epsilon],
-              [c_index_ds.min() - epsilon, c_index_ds.max() + epsilon]]
+              [v_rad.min() - epsilon, v_rad.max() + epsilon]]#,
+              # [mag_ds.min() - epsilon, mag_ds.max() + epsilon],
+              # [c_index_ds.min() - epsilon, c_index_ds.max() + epsilon]]
 
-    samples = dataset.as_array(mag=mag, c_index=c_index)
+    samples = dataset.as_array()#mag=mag, c_index=c_index)
 
     if epsilon == 0:
         # FIXME: to be tested.

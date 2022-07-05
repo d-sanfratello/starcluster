@@ -145,7 +145,7 @@ class EquatorialData:
 
             dset[0:] = self.gal
 
-    def as_array(self, *, mag=None, c_index=None):
+    def as_array(self):#, *, mag=None, c_index=None):
         # fixme: check docstring
         """
         Method that converts the structured array contained within the `gal`
