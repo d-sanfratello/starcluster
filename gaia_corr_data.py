@@ -16,7 +16,8 @@ from zero_point import zpt
        'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr', 'ruwe',
        'radial_velocity', 'radial_velocity_error', 'l', 'b',
        'nu_eff_used_in_astrometry', 'pseudocolour', 'astrometric_params_solved',
-       'ecl_lat', 'grvs_mag', 'rv_template_teff', 'astrometric_primary_flag']
+       'ecl_lat', 'grvs_mag', 'rv_template_teff', 'astrometric_primary_flag', 
+       'phot_g_mean_mag']
 '''
 
 
@@ -95,14 +96,90 @@ def v_rad_wrapper(df_row):
     return v_rad_bias
 
 
+def _sind(x):
+    # Function copied from function edr3ToICRF as showed in Cantat-Gaudin,
+    # T. and Brandt, T. D., “Characterizing and correcting the proper motion
+    # bias of the bright Gaia EDR3 sources”, Astronomy and Astrophysics, vol.
+    # 649, 2021. doi:10.1051/0004-6361/202140807.
+    #
+    # Code was slightly modified to improve readability in context with our
+    # code.
+    return np.sin(np.radians(x))
+
+
+def _cosd(x):
+    # Function copied from function edr3ToICRF as showed in Cantat-Gaudin,
+    # T. and Brandt, T. D., “Characterizing and correcting the proper motion
+    # bias of the bright Gaia EDR3 sources”, Astronomy and Astrophysics, vol.
+    # 649, 2021. doi:10.1051/0004-6361/202140807.
+    #
+    # Code was slightly modified to improve readability in context with our
+    # code.
+    return np.cos(np.radians(x))
+
+
+def pm_wrapper(df_row):
+    # Function copied from function edr3ToICRF as showed in Cantat-Gaudin,
+    # T. and Brandt, T. D., “Characterizing and correcting the proper motion
+    # bias of the bright Gaia EDR3 sources”, Astronomy and Astrophysics, vol.
+    # 649, 2021. doi:10.1051/0004-6361/202140807.
+    #
+    # Code was slightly modified to improve readability in context with our
+    # code.
+    """
+    Input: source position , coordinates ,
+    and G magnitude from Gaia EDR3.
+    Output: corrected proper motion.
+    """
+    g_mag = df_row.phot_g_mean_mag
+    ra = df_row.ra
+    dec = df_row.dec
+
+    pmra_corr = np.zeros_like(g_mag)
+    pmdec_corr = np.zeros_like(g_mag)
+    corrected = np.where(g_mag < 13)
+
+    table1 = '''0.0 9.0 18.4 33.8 -11.3
+                9.0 9.5 14.0 30.7 -19.4
+                9.5 10.0 12.8 31.4 -11.8
+                10.0 10.5 13.6 35.7 -10.5
+                10.5 11.0 16.2 50.0 2.1
+                11.0 11.5 19.4 59.9 0.2
+                11.5 11.75 21.8 64.2 1.0
+                11.75 12.0 17.7 65.6 -1.9
+                12.0 12.25 21.3 74.8 2.1
+                12.25 12.5 25.7 73.6 1.0
+                12.5 12.75 27.3 76.6 0.5
+                12.75 13.0 34.9 68.9 -2.9 '''
+    table1 = np.fromstring(table1, sep=' ').reshape((12, 5)).T
+
+    g_mag_min = table1[0]
+    g_mag_max = table1[1]
+
+    # pick the appropriate omegaXYZ for the source’s magnitude:
+    omega_x = table1[2][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
+    omega_y = table1[3][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
+    omega_z = table1[4][(g_mag_min <= g_mag) & (g_mag_max > g_mag)][0]
+
+    pmra_corr[corrected] = -1 * _sind(dec) * _cosd(ra) * omega_x \
+        - _sind(dec) * _sind(ra) * omega_y \
+        + _cosd(dec) * omega_z
+    pmdec_corr[corrected] = _sind(ra) * omega_x - _cosd(ra) * omega_y
+
+    return pmra_corr / 1000., pmdec_corr / 1000.
+
+
 def cov_from_attitude(df, covs):
+    # Following the naming convention from Holl and Lindegren (2012)
     primary_sources = df[df['astrometric_primary_flag'] is True]
     p_src = primary_sources
 
     secondary_sources = df[df['astrometric_primary_flag'] is False]
     s_src = secondary_sources
 
-    P = block_diag(covs)
+    U = block_diag(covs)
+
+    return None
     
 
 def read_data(file):
@@ -119,17 +196,23 @@ def read_data(file):
     zero_point = df.apply(zpt.zpt_wrapper, axis=1)
 
     # Radial Velocity error correction
+    # (Babusiaux et al. (2022))
     f_sigma = df.apply(f_sigma_wrapper, axis=1)
     df['radial_velocity_error'] *= f_sigma
 
     # Radial Velocity bias correction
+    # (Katz et al. (2022), Blomme et al. (2022))
     v_rad_bias = df.apply(v_rad_wrapper, axis=1)
+
+    # Proper motion bias correction
+    # (Cantat-Gaudin and Brandt, 2021)
+    pmra_corr, pmdec_corr = df.apply(pm_wrapper, axis=1)
 
     means = np.array([df['ra'],
                       df['dec'],
                       df['parallax'] - zero_point,
-                      df['pmra'],
-                      df['pmdec'],
+                      df['pmra'] - pmra_corr,
+                      df['pmdec'] - pmdec_corr,
                       df['radial_velocity'] - v_rad_bias]).T
     covs = np.array([
         fill_matrix(*[df[name][i] for name in names]
