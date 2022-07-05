@@ -5,6 +5,9 @@ from zero_point import zpt
 from pathlib import Path
 
 from . import utils
+from .utils.bias_corrections import (v_rad_bias_correction,
+                                     pmra_bias_correction,
+                                     pmdec_bias_correction)
 
 
 class EquatorialData:
@@ -209,30 +212,53 @@ class EquatorialData:
         return np.vstack((l, b, plx, pml, pmb, v_rad)).T
 
     def __open_dr3(self, path):
-        # FIXME: check these papers and update references
-        # 10.1051/0004-6361/201832964 - parallax
-        # 10.1051/0004-6361/201832727 - astrometric solution
         # FIXME: checked papers:
-        # 10.1051/0004-6361/202039653 - Parallax bias (Lindegren+2021a)
         # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
+
+        dtype = {name: float for name in self.astrometry_cols}
+        dtype['source_id'] = np.int64
+        dtype['astrometric_params_solved'] = bytes
+        dtype['astrometric_primary_flag'] = bool
+
         data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
-                             filling_values=np.nan),
-                             #dtype=self.eq_dtype)
-
-        # data['source_id'] = data['source_id'].astype(np.int64)
-        # data['astrometric_params_solved'] = data[
-        #     'astrometric_params_solved'].astype(bytes)
-        # data['astrometric_primary_flag'].astype(bool)
+                             filling_values=np.nan,
+                             dtype=dtype)
 
         # Data containing NaNs in astrometry columns are discarded.
         for col in self.astrometry_cols:
-            # FIXME: Add check for 'col'. If 'parallax', it should apply the
-            #  correction from Lindegren+, 2021.
-            # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
+
+        for col in self.astrometry_cols:
+            # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
+            if col == 'parallax':
+                # Parallax zero point correction
+                # (Lindegren et al (A&A, 649, A4, 2021))
+                zpt.load_tables()
+                zero_point = zpt.get_zpt(data['phot_g_mean_mag'],
+                                         data['nu_eff_used_in_astrometry'],
+                                         data['pseudocolour'],
+                                         data['ecl_lat'],
+                                         data['astrometric_params_solved'])
+
+                data[col] -= zero_point
+            elif col == 'radial_velocity':
+                # Radial Velocity bias correction
+                # (Katz et al. (2022), Blomme et al. (2022))
+                v_rad_corr = v_rad_bias_correction(data)
+                data[col] -= v_rad_corr
+            elif col == 'pmra':
+                # Proper motion bias correction
+                # (Cantat-Gaudin and Brandt, 2021)
+                pmra_corr = pmra_bias_correction(data)
+                data[col] -= pmra_corr
+            elif col == 'pmdec':
+                # Proper motion bias correction
+                # (Cantat-Gaudin and Brandt, 2021)
+                pmdec_corr = pmdec_bias_correction(data)
+                data[col] -= pmdec_corr
 
         data_gal = self.__eq_to_gal(data)
 
