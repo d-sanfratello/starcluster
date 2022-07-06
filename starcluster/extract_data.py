@@ -227,6 +227,12 @@ class EquatorialData:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
+        # Checking for nu_eff_used_in_astrometry vs pseudocolour. At least
+        # one must be available for the bias corrections.
+        idx = np.where(np.isnan(data['nu_eff_used_in_astrometry']) &
+                       np.isnan(data['pseudocolour']))
+        data = data[idx]
+
         # FIXME: Riello+2021 10.1051/0004-6361/202039587 (check)
         # Parallax zero point correction
         # (Lindegren et al (A&A, 649, A4, 2021))
