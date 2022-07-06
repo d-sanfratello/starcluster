@@ -19,7 +19,8 @@ class EquatorialData:
                        'astrometric_params_solved',
                        'ecl_lat', 'grvs_mag',
                        'rv_template_teff', 'astrometric_primary_flag',
-                       'phot_g_mean_mag']
+                       'phot_g_mean_mag',
+                       'in_qso_candidates', 'in_galaxy_candidates']
 
     nu_for_solution = ['nu_eff_used_in_astrometry', 'pseudocolour']
 
@@ -27,7 +28,9 @@ class EquatorialData:
                        'phot_bp_mean_mag',
                        'phot_rp_mean_mag']
 
-    def __init__(self, path, *, convert=True):
+    def __init__(self, path, *, convert=True,
+                 no_extragalactic=False,
+                 galaxy_cand=None, quasar_cand=None):
         # fixme: check docstring
         """
         Class to open an existing file containing astrometric data.
@@ -101,7 +104,10 @@ class EquatorialData:
                                    ('v_rad', float)])
 
         if convert:
-            self.gal = self.__open_dr3(path)
+            self.gal = self.__open_dr3(path,
+                                       no_extragalactic=no_extragalactic,
+                                       galaxy_cand=galaxy_cand,
+                                       quasar_cand=quasar_cand)
         else:
             self.gal = self.__open_galactic(path)
 
@@ -212,7 +218,10 @@ class EquatorialData:
         # return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
         return np.vstack((l, b, plx, pml, pmb, v_rad)).T
 
-    def __open_dr3(self, path):
+    def __open_dr3(self, path,
+                   no_extragalactic=False,
+                   galaxy_cand=None,
+                   quasar_cand=None):
         # FIXME: checked papers:
         # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
 
@@ -221,6 +230,47 @@ class EquatorialData:
                              names=True,
                              filling_values=np.nan,
                              dtype=None)
+
+        if no_extragalactic and (galaxy_cand is not None and
+                                 quasar_cand is not None):
+            # Removing galaxy and quasar candidates as in
+            # Gaia Collaboration, “Gaia Data Release 3: The extragalactic
+            # content”, arXiv e-prints, 2022.
+
+            galaxy_cand = np.genfromtxt(galaxy_cand,
+                                        delimiter=',',
+                                        names=True,
+                                        filling_values=np.nan,
+                                        dtype=None)
+            quasar_cand = np.genfromtxt(quasar_cand,
+                                        delimiter=',',
+                                        names=True,
+                                        filling_values=np.nan,
+                                        dtype=None)
+
+            # Condition to obtain a "purer" quasar subsample from the
+            # qso_candidates table, as in Gaia Collaboration (2022), Table 11.
+            idx_qso = np.where(quasar_cand['gaia_crf_source'] |
+                               quasar_cand['host_galaxy_flag'] < 6 |
+                               quasar_cand['classlabel_dsc_joint'] == 'quasar' |
+                               quasar_cand['vari_best_class_name'] == 'AGN')
+            # Indentification of the source ids of the qso candidates
+            source_id_qso = quasar_cand['source_id'][idx_qso]
+            # Index to be deteled from the data structured array.
+            idx_qso_delete = np.where(data['source_id'] in source_id_qso)
+            data = np.delete(data, idx_qso_delete)
+
+            # Condition to obtain a "purer" galaxy subsample from the
+            # galaxy_candidates table, as in Gaia Collaboration (2022),
+            # Table 12.
+            idx_gal = np.where(~np.isnan(galaxy_cand['radius_sersic']) |
+                               galaxy_cand['calsslabel_dsc_joint'] == 'galaxy' |
+                               galaxy_cand['vari_best_class_name'] == 'GALAXY')
+            # Indentification of the source ids of the galaxy candidates
+            source_id_gal = galaxy_cand['source_id'][idx_gal]
+            # Index to be deteled from the data structured array.
+            idx_gal_delete = np.where(data['source_id'] in source_id_gal)
+            data = np.delete(data, idx_gal_delete)
 
         # Data containing NaNs in astrometry columns are discarded.
         for col in self.astrometry_cols:
