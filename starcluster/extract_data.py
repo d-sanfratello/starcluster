@@ -264,7 +264,7 @@ class EquatorialData:
             # galaxy_candidates table, as in Gaia Collaboration (2022),
             # Table 12.
             idx_gal = np.where(~np.isnan(galaxy_cand['radius_sersic']) |
-                               galaxy_cand['calsslabel_dsc_joint'] == 'galaxy' |
+                               galaxy_cand['classlabel_dsc_joint'] == 'galaxy' |
                                galaxy_cand['vari_best_class_name'] == 'GALAXY')
             # Indentification of the source ids of the galaxy candidates
             source_id_gal = galaxy_cand['source_id'][idx_gal]
