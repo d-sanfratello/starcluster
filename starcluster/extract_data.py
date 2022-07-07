@@ -240,20 +240,30 @@ class EquatorialData:
             galaxy_cand = np.genfromtxt(galaxy_cand,
                                         delimiter=',',
                                         names=True,
-                                        filling_values=np.nan,
-                                        dtype=None)
+                                        dtype=None,
+                                        filling_values={
+                                            'radius_sersic': np.nan,
+                                            'classlabel_dsc_joint': '',
+                                            'vari_best_class_name': ''
+                                        })
             quasar_cand = np.genfromtxt(quasar_cand,
                                         delimiter=',',
                                         names=True,
-                                        filling_values=np.nan,
-                                        dtype=None)
+                                        dtype=None,
+                                        filling_values={
+                                            'gaia_crf_source': None,
+                                            'host_galaxy_flag': 9,
+                                            'classlabel_dsc_joint': '',
+                                            'vari_best_class_name': ''
+                                        })
 
             # Condition to obtain a "purer" quasar subsample from the
             # qso_candidates table, as in Gaia Collaboration (2022), Table 11.
-            idx_qso = np.where(quasar_cand['gaia_crf_source'] |
-                               quasar_cand['host_galaxy_flag'] < 6 |
-                               quasar_cand['classlabel_dsc_joint'] == 'quasar' |
-                               quasar_cand['vari_best_class_name'] == 'AGN')
+            idx_qso = np.where((quasar_cand['gaia_crf_source']) |
+                               (quasar_cand['host_galaxy_flag'] < 6) |
+                               (quasar_cand['classlabel_dsc_joint'] ==
+                                'quasar') |
+                               (quasar_cand['vari_best_class_name'] == 'AGN'))
             # Indentification of the source ids of the qso candidates
             source_id_qso = quasar_cand['source_id'][idx_qso]
             # Index to be deteled from the data structured array.
@@ -263,9 +273,11 @@ class EquatorialData:
             # Condition to obtain a "purer" galaxy subsample from the
             # galaxy_candidates table, as in Gaia Collaboration (2022),
             # Table 12.
-            idx_gal = np.where(~np.isnan(galaxy_cand['radius_sersic']) |
-                               galaxy_cand['classlabel_dsc_joint'] == 'galaxy' |
-                               galaxy_cand['vari_best_class_name'] == 'GALAXY')
+            idx_gal = np.where((~np.isnan(galaxy_cand['radius_sersic'])) |
+                               (galaxy_cand['classlabel_dsc_joint'] ==
+                                'galaxy') |
+                               (galaxy_cand['vari_best_class_name'] ==
+                                'GALAXY'))
             # Indentification of the source ids of the galaxy candidates
             source_id_gal = galaxy_cand['source_id'][idx_gal]
             # Index to be deteled from the data structured array.
