@@ -30,6 +30,7 @@ class EquatorialData:
 
     def __init__(self, path, *, convert=True,
                  no_extragalactic=False,
+                 ruwe=None,
                  galaxy_cand=None, quasar_cand=None):
         # fixme: check docstring
         """
@@ -107,7 +108,8 @@ class EquatorialData:
             self.gal = self.__open_dr3(path,
                                        no_extragalactic=no_extragalactic,
                                        galaxy_cand=galaxy_cand,
-                                       quasar_cand=quasar_cand)
+                                       quasar_cand=quasar_cand,
+                                       ruwe=ruwe)
         else:
             self.gal = self.__open_galactic(path)
 
@@ -220,6 +222,7 @@ class EquatorialData:
 
     def __open_dr3(self, path,
                    no_extragalactic=False,
+                   ruwe=None,
                    galaxy_cand=None,
                    quasar_cand=None):
         # FIXME: checked papers:
@@ -283,6 +286,12 @@ class EquatorialData:
             # Index to be deteled from the data structured array.
             idx_gal_delete = np.where(data['source_id'] in source_id_gal)
             data = np.delete(data, idx_gal_delete)
+
+        # RUWE correction as in Lindegren, L. 2018, technical note
+        # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
+        if ruwe is not None:
+            idx = np.where(data['ruwe'] <= ruwe)
+            data = data[idx]
 
         # Data containing NaNs in astrometry columns are discarded.
         for col in self.astrometry_cols:

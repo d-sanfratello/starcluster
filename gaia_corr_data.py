@@ -216,13 +216,18 @@ def cov_from_attitude(df, covs):
     return None
     
 
-def read_data(file):
+def read_data(file, ruwe=None):
     names = ['ra_error', 'dec_error', 'parallax_error', 'pmra_error', 
              'pmdec_error', 'radial_velocity_error', 'ra_dec_corr', 
              'ra_parallax_corr', 'ra_pmra_corr', 'ra_pmdec_corr', 
              'dec_parallax_corr', 'dec_pmra_corr', 'dec_pmdec_corr', 
              'parallax_pmra_corr', 'parallax_pmdec_corr', 'pmra_pmdec_corr']
     df = pd.read_csv(file)
+
+    # RUWE correction as in Lindegren, L. 2018, technical note
+    # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
+    if ruwe is not None:
+        df = df[df['ruwe'] <= ruwe]
 
     # Parallax zero point correction
     # (Lindegren et al (A&A, 649, A4, 2021))
