@@ -3,7 +3,7 @@ import numpy as np
 
 from pathlib import Path
 
-from starcluster.const import PC2KM, YR2S
+from starcluster.const import PC2KM, YR2S, PC2KPC
 
 
 __dtype = np.dtype([('x', float),
@@ -26,12 +26,12 @@ def __masyr_to_kms(pm, dist):
 
 def __eq_to_galactic(data):
     # FIXME: check for correct position as plots seem to make little sense.
-    distances = 1 / data['plx']
+    distances = (1 / data['plx']) / PC2KPC  # pc
     pml = __masyr_to_kms(data['pml_star'], distances)  # pm_l_cosb
     pmb = __masyr_to_kms(data['pmb'], distances)
 
-    l = data['l']
-    b = data['b']
+    l = np.deg2rad(data['l'])
+    b = np.deg2rad(data['b'])
 
     # conversion to galactic coordinates.
     pos_gal = np.array([np.cos(b) * np.cos(l),
@@ -63,7 +63,7 @@ def __eq_to_galactic(data):
     return cartesian_data
 
 
-def as_cartesian_array(data, scale=10):
+def as_cartesian_array(data):
     x = []
     y = []
     z = []
@@ -81,13 +81,13 @@ def as_cartesian_array(data, scale=10):
         vz.append(galactic_cartesian['vz'][0])
 
     data_cart = np.zeros(len(data), dtype=__dtype)
-    data_cart['x'] = np.array(x) * 1e3
-    data_cart['y'] = np.array(y) * 1e3
-    data_cart['z'] = np.array(z) * 1e3
+    data_cart['x'] = np.array(x)
+    data_cart['y'] = np.array(y)
+    data_cart['z'] = np.array(z)
 
-    data_cart['vx'] = (np.array(vx) - np.mean(vx)) / scale
-    data_cart['vy'] = (np.array(vy) - np.mean(vy)) / scale
-    data_cart['vz'] = (np.array(vz) - np.mean(vz)) / scale
+    data_cart['vx'] = (np.array(vx) - np.mean(vx))
+    data_cart['vy'] = (np.array(vy) - np.mean(vy))
+    data_cart['vz'] = (np.array(vz) - np.mean(vz))
 
     v = np.sqrt(data_cart['vx'] ** 2
                 + data_cart['vy'] ** 2
@@ -96,13 +96,13 @@ def as_cartesian_array(data, scale=10):
     return data_cart, v
 
 
-def __exp_to_cartesian_array(data, scale=10):
-    distances = 1 / data[2]
+def __exp_to_cartesian_array(data):
+    distances = (1 / data[2]) / PC2KPC  # pc
     pml = __masyr_to_kms(data[3], distances)  # pm_l_cosb
     pmb = __masyr_to_kms(data[4], distances)
 
-    l = data[0]
-    b = data[1]
+    l = np.deg2rad(data[0])
+    b = np.deg2rad(data[1])
 
     # conversion to galactic coordinates.
     pos_gal = np.array([np.cos(b) * np.cos(l),
@@ -127,7 +127,6 @@ def __exp_to_cartesian_array(data, scale=10):
     # total proper motion in ICRS system and then converted to galactic.
     mu_gal = p_gal * pml + q_gal * pmb + r_gal * data[5]
     mu_gal -= mu_gal
-    mu_gal /= scale
 
     cartesian_data = np.array([(pos_gal[0], pos_gal[1], pos_gal[2],
                                 mu_gal[0], mu_gal[1], mu_gal[2])],
@@ -138,12 +137,13 @@ def __exp_to_cartesian_array(data, scale=10):
 
 def quiver_plot(data,
                 out_folder='.', name='cartesian_3d',
-                units=None,
+                units=[r'pc', r'pc', r'pc', r'km/s', r'km/s', r'km/s'],
                 show=False, save=True, subfolder=False,
                 true_value=None,
                 figsize=7,
                 elev=45,
-                azim=45):
+                azim=45,
+                scale=3e1):
 
     labels = ['x', 'y', 'z']
     if units is not None:
@@ -163,7 +163,8 @@ def quiver_plot(data,
             ax.view_init(el, az)
             ax.quiver(data['x'], data['y'], data['z'],
                       data['vx'], data['vy'], data['vz'],
-                      arrow_length_ratio=0.3)
+                      arrow_length_ratio=0.1,
+                      length=1/scale)
             ax.set_xlabel(labels[0])
             ax.set_ylabel(labels[1])
             ax.set_zlabel(labels[2])
@@ -174,9 +175,9 @@ def quiver_plot(data,
 
                 # ax.quiver(exp_value['x'], exp_value['y'], exp_value['z'],
                 #           exp_value['vx'], exp_value['vy'], exp_value['vz'],
-                #           arrow_length_ratio=0.3,
+                #           arrow_length_ratio=0.1,
                 #           color='orangered')
-                ax.scatter(exp_value['x'], exp_value['y'], not exp_value['z'],
+                ax.scatter(exp_value['x'], exp_value['y'], exp_value['z'],
                            color='orangered')
 
             if show:
