@@ -29,7 +29,6 @@ class EquatorialData:
                        'phot_rp_mean_mag']
 
     def __init__(self, path, *, convert=True,
-                 no_extragalactic=False,
                  ruwe=None,
                  galaxy_cand=None, quasar_cand=None):
         # fixme: check docstring
@@ -106,7 +105,6 @@ class EquatorialData:
 
         if convert:
             self.gal = self.__open_dr3(path,
-                                       no_extragalactic=no_extragalactic,
                                        galaxy_cand=galaxy_cand,
                                        quasar_cand=quasar_cand,
                                        ruwe=ruwe)
@@ -178,7 +176,6 @@ class EquatorialData:
         return np.vstack((l, b, plx, pml, pmb, v_rad)).T
 
     def __open_dr3(self, path,
-                   no_extragalactic=False,
                    ruwe=None,
                    galaxy_cand=None,
                    quasar_cand=None):
@@ -191,11 +188,10 @@ class EquatorialData:
                              filling_values=np.nan,
                              dtype=None)
 
-        if no_extragalactic and (galaxy_cand is not None and
-                                 quasar_cand is not None):
-            # Removing galaxy and qso candidates, identified as in
-            # Gaia Collaboration, “Gaia Data Release 3: The extragalactic
-            # content”, arXiv e-prints, 2022.
+        if galaxy_cand is not None:
+            # Removing galaxy candidates, identified as in Gaia Collaboration,
+            # “Gaia Data Release 3: The extragalactic content”, arXiv e-prints,
+            # 2022.
 
             galaxy_cand = np.genfromtxt(galaxy_cand,
                                         delimiter=',',
@@ -206,6 +202,26 @@ class EquatorialData:
                                             'classlabel_dsc_joint': '',
                                             'vari_best_class_name': ''
                                         })
+
+            # Condition to obtain a "purer" galaxy subsample from the
+            # galaxy_candidates table, as in Gaia Collaboration (2022),
+            # Table 12.
+            idx_gal = np.where((~np.isnan(galaxy_cand['radius_sersic'])) |
+                               (galaxy_cand['classlabel_dsc_joint'] ==
+                                'galaxy') |
+                               (galaxy_cand['vari_best_class_name'] ==
+                                'GALAXY'))
+            # Identification of the source ids of the galaxy candidates
+            source_id_gal = galaxy_cand['source_id'][idx_gal]
+            # Index to be deleted from the data structured array.
+            idx_gal_delete = np.where(data['source_id'] in source_id_gal)
+            data = np.delete(data, idx_gal_delete)
+
+        if quasar_cand is not None:
+            # Removing qso candidates, identified as in Gaia Collaboration,
+            # “Gaia Data Release 3: The extragalactic content”, arXiv e-prints,
+            # 2022.
+
             quasar_cand = np.genfromtxt(quasar_cand,
                                         delimiter=',',
                                         names=True,
@@ -229,20 +245,6 @@ class EquatorialData:
             # Index to be deleted from the data structured array.
             idx_qso_delete = np.where(data['source_id'] in source_id_qso)
             data = np.delete(data, idx_qso_delete)
-
-            # Condition to obtain a "purer" galaxy subsample from the
-            # galaxy_candidates table, as in Gaia Collaboration (2022),
-            # Table 12.
-            idx_gal = np.where((~np.isnan(galaxy_cand['radius_sersic'])) |
-                               (galaxy_cand['classlabel_dsc_joint'] ==
-                                'galaxy') |
-                               (galaxy_cand['vari_best_class_name'] ==
-                                'GALAXY'))
-            # Identification of the source ids of the galaxy candidates
-            source_id_gal = galaxy_cand['source_id'][idx_gal]
-            # Index to be deleted from the data structured array.
-            idx_gal_delete = np.where(data['source_id'] in source_id_gal)
-            data = np.delete(data, idx_gal_delete)
 
         # RUWE correction as in Lindegren, L. 2018, technical note
         # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
