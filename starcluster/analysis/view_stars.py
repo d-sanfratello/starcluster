@@ -183,14 +183,18 @@ def quiver_plot(data,
                           mid_point[0], mid_point[1], mid_point[2],
                           arrow_length_ratio=1/np.linalg.norm(mid_point),
                           length=1,
-                          color='red')
+                          color='red',
+                          label='Line of sight')
 
             if true_value is not None:
                 true_value = true_value[:6]
                 exp_value = __exp_to_cartesian_array(true_value)
 
                 ax.scatter(exp_value['x'], exp_value['y'], exp_value['z'],
-                           color='orangered')
+                           color='orangered',
+                           label='Known position')
+
+            ax.legend(loc='best')
 
             if show:
                 plt.show()
