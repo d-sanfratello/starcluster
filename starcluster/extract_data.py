@@ -246,15 +246,15 @@ class EquatorialData:
             idx_qso_delete = np.where(data['source_id'] in source_id_qso)
             data = np.delete(data, idx_qso_delete)
 
+        # Data containing NaNs in astrometry columns are discarded.
+        for col in self.astrometry_cols:
+            idx = np.where(~np.isnan(data[col]))
+            data = data[idx]
+
         # RUWE correction as in Lindegren, L. 2018, technical note
         # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
         if ruwe is not None:
             idx = np.where(data['ruwe'] <= ruwe)
-            data = data[idx]
-
-        # Data containing NaNs in astrometry columns are discarded.
-        for col in self.astrometry_cols:
-            idx = np.where(~np.isnan(data[col]))
             data = data[idx]
 
         # Checking for nu_eff_used_in_astrometry vs pseudocolour. At least
