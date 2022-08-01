@@ -25,7 +25,6 @@ def __masyr_to_kms(pm, dist):
 
 
 def __eq_to_galactic(data):
-    # FIXME: check for correct position as plots seem to make little sense.
     distances = (1 / data['plx']) / PC2KPC  # pc
     pml = __masyr_to_kms(data['pml_star'], distances)  # pm_l_cosb
     pmb = __masyr_to_kms(data['pmb'], distances)
