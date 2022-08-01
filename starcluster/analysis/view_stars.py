@@ -25,8 +25,9 @@ def __masyr_to_kms(pm, dist):
 
 
 def __eq_to_galactic(data):
+    # FIXME: check for correct position as plots seem to make little sense.
     distances = 1 / data['plx']
-    pml = __masyr_to_kms(data['pml_star'], distances)  # pm_l_cosdec
+    pml = __masyr_to_kms(data['pml_star'], distances)  # pm_l_cosb
     pmb = __masyr_to_kms(data['pmb'], distances)
 
     l = data['l']
@@ -95,6 +96,46 @@ def as_cartesian_array(data, scale=10):
     return data_cart, v
 
 
+def __exp_to_cartesian_array(data, scale=10):
+    distances = 1 / data[2]
+    pml = __masyr_to_kms(data[3], distances)  # pm_l_cosb
+    pmb = __masyr_to_kms(data[4], distances)
+
+    l = data[0]
+    b = data[1]
+
+    # conversion to galactic coordinates.
+    pos_gal = np.array([np.cos(b) * np.cos(l),
+                        np.cos(b) * np.sin(l),
+                        np.sin(b)]) * distances
+
+    # unit vector for proper motion component in galactic longitude l
+    # (expressed in km/s, see above)
+    p_gal = np.array([-np.sin(l),
+                      np.cos(l),
+                      0])
+    # unit vector for proper motion component in galactic latitude b
+    # (expressed in km/s, see above)
+    q_gal = np.array([-np.cos(l) * np.sin(b),
+                      -np.sin(l) * np.sin(b),
+                      np.cos(b)])
+
+    # unit vector for radial velocity component as cross product between
+    # p_gal and q_gal
+    r_gal = np.cross(p_gal, q_gal)
+
+    # total proper motion in ICRS system and then converted to galactic.
+    mu_gal = p_gal * pml + q_gal * pmb + r_gal * data[5]
+    mu_gal -= mu_gal
+    mu_gal /= scale
+
+    cartesian_data = np.array([(pos_gal[0], pos_gal[1], pos_gal[2],
+                                mu_gal[0], mu_gal[1], mu_gal[2])],
+                              dtype=__dtype)
+
+    return cartesian_data
+
+
 def quiver_plot(data,
                 out_folder='.', name='cartesian_3d',
                 units=None,
@@ -127,6 +168,17 @@ def quiver_plot(data,
             ax.set_ylabel(labels[1])
             ax.set_zlabel(labels[2])
 
+            if true_value is not None:
+                true_value = true_value[:6]
+                exp_value = __exp_to_cartesian_array(true_value)
+
+                # ax.quiver(exp_value['x'], exp_value['y'], exp_value['z'],
+                #           exp_value['vx'], exp_value['vy'], exp_value['vz'],
+                #           arrow_length_ratio=0.3,
+                #           color='orangered')
+                ax.scatter(exp_value['x'], exp_value['y'], not exp_value['z'],
+                           color='orangered')
+
             if show:
                 plt.show()
             if save:
@@ -146,4 +198,3 @@ def quiver_plot(data,
                                      f'{name}_az{az}_el{el}.pdf'),
                                 format='pdf',
                                 bbox_inches='tight')
-    plt.close()
