@@ -101,11 +101,12 @@ def quiver_plot(data,
                 show=False, save=True, subfolder=False,
                 true_value=None,
                 figsize=7,
-                elev=[20 * i for i in range(5)], azim=45):
+                elev=45,
+                azim=45):
 
     labels = ['x', 'y', 'z']
     if units is not None:
-        labels = [lab[:-1] + f'$[{u}]$'
+        labels = [lab + f' $[{u}]$'
                   if not u == '' else lab for lab, u in zip(labels, units[:3])]
 
     fig = plt.figure(figsize=(figsize, figsize))
@@ -113,31 +114,36 @@ def quiver_plot(data,
 
     if not hasattr(elev, '__iter__'):
         elev = [elev]
+    if not hasattr(azim, '__iter__'):
+        azim = [azim]
 
-    for idx, el in enumerate(elev):
-        ax.view_init(el, azim)
-        ax.quiver(data['x'], data['y'], data['z'],
-                  data['vx'], data['vy'], data['vz'],
-                  arrow_length_ratio=0.1)
-        ax.set_xlabel(labels[0])
-        ax.set_ylabel(labels[1])
-        ax.set_zlabel(labels[2])
+    for el in elev:
+        for az in azim:
+            ax.view_init(el, az)
+            ax.quiver(data['x'], data['y'], data['z'],
+                      data['vx'], data['vy'], data['vz'],
+                      arrow_length_ratio=0.3)
+            ax.set_xlabel(labels[0])
+            ax.set_ylabel(labels[1])
+            ax.set_zlabel(labels[2])
 
-        if show:
-            plt.show()
-        if save:
-            if not subfolder:
-                fig.savefig(Path(out_folder, f'{name}_{idx}.pdf'),
-                            format='pdf',
-                            bbox_inches='tight')
-            else:
-                if not Path(out_folder, 'cart_3d').exists():
-                    try:
-                        Path(out_folder, 'cart_3d').mkdir()
-                    except FileExistsError:
-                        pass
-                fig.savefig(Path(out_folder,
-                                 'cart_3d', f'{idx}.pdf'.format(name)),
-                            format='pdf',
-                            bbox_inches='tight')
+            if show:
+                plt.show()
+            if save:
+                if not subfolder:
+                    fig.savefig(Path(out_folder,
+                                     f'{name}_az{az}_el{el}.pdf'),
+                                format='pdf',
+                                bbox_inches='tight')
+                else:
+                    if not Path(out_folder, 'cart_3d').exists():
+                        try:
+                            Path(out_folder, 'cart_3d').mkdir()
+                        except FileExistsError:
+                            pass
+                    fig.savefig(Path(out_folder,
+                                     'cart_3d',
+                                     f'{name}_az{az}_el{el}.pdf'),
+                                format='pdf',
+                                bbox_inches='tight')
     plt.close()
