@@ -142,7 +142,8 @@ def quiver_plot(data,
                 figsize=7,
                 elev=45,
                 azim=45,
-                scale=3e1):
+                scale=3e1,
+                line_of_sight=False):
 
     labels = ['x', 'y', 'z']
     if units is not None:
@@ -177,20 +178,17 @@ def quiver_plot(data,
             ax.set_ylim(lower_bounds[1], upper_bounds[1])
             ax.set_zlim(lower_bounds[2], upper_bounds[2])
 
-            ax.quiver(0, 0, 0,
-                      mid_point[0], mid_point[1], mid_point[2],
-                      arrow_length_ratio=1/np.linalg.norm(mid_point),
-                      length=1,
-                      color='red')
+            if line_of_sight:
+                ax.quiver(0, 0, 0,
+                          mid_point[0], mid_point[1], mid_point[2],
+                          arrow_length_ratio=1/np.linalg.norm(mid_point),
+                          length=1,
+                          color='red')
 
             if true_value is not None:
                 true_value = true_value[:6]
                 exp_value = __exp_to_cartesian_array(true_value)
 
-                # ax.quiver(exp_value['x'], exp_value['y'], exp_value['z'],
-                #           exp_value['vx'], exp_value['vy'], exp_value['vz'],
-                #           arrow_length_ratio=0.1,
-                #           color='orangered')
                 ax.scatter(exp_value['x'], exp_value['y'], exp_value['z'],
                            color='orangered')
 
