@@ -122,7 +122,7 @@ class EquatorialData:
 
         Position on the celestial sphere is expressed in degrees and
         parallax in mas. Proper motion's units are mas/yr (note that proper
-        motion in galactic longitude is expressed as `pml* = pml * cos(b)`.
+        motion in galactic longitude is expressed as `pml* = pml * cos(b)`).
         Radial velocity is expressed in km/s. Photometric quantities are
         expressed in magnitudes.
 
@@ -154,48 +154,20 @@ class EquatorialData:
 
             dset[0:] = self.gal
 
-    def as_array(self):#, *, mag=None, c_index=None):
+    def as_array(self):
         # fixme: check docstring
         """
         Method that converts the structured array contained within the `gal`
         attribute into an array of shape (N_stars, 8). The eight fields are,
-        in order (l, b, plx, pml_star, pmb, v_rad, mag, c_index), where
+        in order (l, b, plx, pml_star, pmb, v_rad), where
 
-            `pml_star = mu_l * cos(b)`
-
-        and `mag` and `c_index` are the photometric band and the color index
-        that will be displayed on the plots. These are defined via the `mag`
-        and `c_index` keyword arguments.
-
-        Parameters
-        ----------
-        mag:
-            `str`, either 'g_mag', 'bp_mag', 'rp_mag'. The magnitude in the
-            selected photometric band to be saved in this array.
-            Default is 'g_mag'.
-        c_index:
-            `str`, either 'bp_rp', 'bp_g' or 'g_rp'. The Color index to be
-            saved in this array. Default is 'bp_rp'.
+            `pml_star = mu_l * cos(b)`.
 
         Returns
         -------
-        `np.ndarray` of shape (N_stars, 8), containing the six kinematic
-        columns and the selected magnitude and color index for the N_stars
-        stars in the catalog.
-
+        `np.ndarray` of shape (N_stars, 6), containing the six kinematic
+        columns N_stars stars in the catalog.
         """
-        # if mag is None:
-        #     mag = 'g_mag'
-        # if c_index is None:
-        #     c_index = 'bp_rp'
-        #
-        # if mag not in ['g_mag', 'bp_mag', 'rp_mag']:
-        #     raise ValueError(
-        #         "Magnitude has to be either `g_mag`, `bp_mag` or `rp_mag`.")
-        # if c_index not in ['bp_rp', 'bp_g', 'g_rp']:
-        #     raise ValueError(
-        #         "Magnitude has to be either `bp_rp`, `bp_g` or `g_rp`.")
-
         l = self('l')
         b = self('b')
         plx = self('plx')
@@ -203,21 +175,6 @@ class EquatorialData:
         pmb = self('pmb')
         v_rad = self('v_rad')
 
-        # if mag == 'g_mag':
-        #     mag = self('g_mag')
-        # elif mag == 'bp_mag':
-        #     mag = self('bp_mag')
-        # elif mag == 'rp_mag':
-        #     mag = self('rp_mag')
-        #
-        # if c_index == 'bp_rp':
-        #     c_index = self('bp_rp')
-        # elif c_index == 'bp_g':
-        #     c_index = self('bp_g')
-        # elif c_index == 'g_rp':
-        #     c_index = self('g_rp')
-
-        # return np.vstack((l, b, plx, pml, pmb, v_rad, mag, c_index)).T
         return np.vstack((l, b, plx, pml, pmb, v_rad)).T
 
     def __open_dr3(self, path,
@@ -267,9 +224,9 @@ class EquatorialData:
                                (quasar_cand['classlabel_dsc_joint'] ==
                                 'quasar') |
                                (quasar_cand['vari_best_class_name'] == 'AGN'))
-            # Indentification of the source ids of the qso candidates
+            # Identification of the source ids of the qso candidates
             source_id_qso = quasar_cand['source_id'][idx_qso]
-            # Index to be deteled from the data structured array.
+            # Index to be deleted from the data structured array.
             idx_qso_delete = np.where(data['source_id'] in source_id_qso)
             data = np.delete(data, idx_qso_delete)
 
@@ -281,9 +238,9 @@ class EquatorialData:
                                 'galaxy') |
                                (galaxy_cand['vari_best_class_name'] ==
                                 'GALAXY'))
-            # Indentification of the source ids of the galaxy candidates
+            # Identification of the source ids of the galaxy candidates
             source_id_gal = galaxy_cand['source_id'][idx_gal]
-            # Index to be deteled from the data structured array.
+            # Index to be deleted from the data structured array.
             idx_gal_delete = np.where(data['source_id'] in source_id_gal)
             data = np.delete(data, idx_gal_delete)
 
