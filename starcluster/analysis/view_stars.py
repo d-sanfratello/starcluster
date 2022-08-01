@@ -157,6 +157,11 @@ def quiver_plot(data,
     if not hasattr(azim, '__iter__'):
         azim = [azim]
 
+    lower_bounds = np.min([data['x'], data['y'], data['z']], axis=1)
+    upper_bounds = np.max([data['x'], data['y'], data['z']], axis=1)
+
+    mid_point = 0.5 * (upper_bounds + lower_bounds)
+
     for el in elev:
         for az in azim:
             ax.view_init(el, az)
@@ -167,6 +172,16 @@ def quiver_plot(data,
             ax.set_xlabel(labels[0])
             ax.set_ylabel(labels[1])
             ax.set_zlabel(labels[2])
+
+            ax.set_xlim(lower_bounds[0], upper_bounds[0])
+            ax.set_ylim(lower_bounds[1], upper_bounds[1])
+            ax.set_zlim(lower_bounds[2], upper_bounds[2])
+
+            ax.quiver(0, 0, 0,
+                      mid_point[0], mid_point[1], mid_point[2],
+                      arrow_length_ratio=1/np.linalg.norm(mid_point),
+                      length=1,
+                      color='red')
 
             if true_value is not None:
                 true_value = true_value[:6]
