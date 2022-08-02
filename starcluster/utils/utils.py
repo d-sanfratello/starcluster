@@ -199,12 +199,12 @@ def dpgmm(
             outpath = Path(str(path).strip('.csv') + '.txt')
         dataset.save_dataset(name=outpath)
 
-    l = dataset('l')
-    b = dataset('b')
-    parallax = dataset('parallax')
-    pml = dataset('pml')
-    pmb = dataset('pmb')
-    radial_velocity = dataset('radial_velocity')
+    l = dataset['l']
+    b = dataset['b']
+    parallax = dataset['parallax']
+    pml = dataset['pml']
+    pmb = dataset['pmb']
+    radial_velocity = dataset['radial_velocity']
     # mag_ds = dataset(mag)
     # c_index_ds = dataset(c_index)
 

@@ -167,12 +167,12 @@ class EquatorialData:
         `np.ndarray` of shape (N_stars, 6), containing the six kinematic
         columns N_stars stars in the catalog.
         """
-        l = self('l')
-        b = self('b')
-        parallax = self('parallax')
-        pml = self('pml')
-        pmb = self('pmb')
-        radial_velocity = self('radial_velocity')
+        l = self['l']
+        b = self['b']
+        parallax = self['parallax']
+        pml = self['pml']
+        pmb = self['pmb']
+        radial_velocity = self['radial_velocity']
 
         return np.vstack((l, b, parallax, pml, pmb, radial_velocity)).T
 
@@ -360,11 +360,8 @@ class EquatorialData:
 
         return pml, pmb
 
-    def __call__(self, item):
-        if item in self.gal_dtype.names:
-            return self.gal[item]
-        else:
-            return self.gal[:][item]
+    def __getitem__(self, item):
+        return np.copy(self.gal[item])
 
 
 Data = EquatorialData
