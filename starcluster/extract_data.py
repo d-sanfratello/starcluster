@@ -4,7 +4,7 @@ import numpy as np
 from zero_point import zpt
 from pathlib import Path
 
-from const import A_G_INV
+from .const import A_G_INV
 from .utils.bias_corrections import (radial_velocity_bias_correction,
                                      pmra_bias_correction,
                                      pmdec_bias_correction)
