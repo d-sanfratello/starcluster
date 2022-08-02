@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def v_rad_bias_correction(data):
+def radial_velocity_bias_correction(data):
     # Radial velocity bias correction
     # for rv_template_teff < 8500 K the correction is the one in equation (5)
     # from `Properties and validation of the radial velocities` by Katz, D.,
@@ -13,20 +13,20 @@ def v_rad_bias_correction(data):
     cold_stars = np.where(rv_teff < 8500)
     hot_stars = np.where(rv_teff >= 8500)
 
-    v_rad_bias = np.zeros_like(g_rvs_mag)
+    radial_velocity_bias = np.zeros_like(g_rvs_mag)
 
     # Colder stars (correction by Katz et al.)
     brighter_cold = np.where(g_rvs_mag[cold_stars] < 11)
     fainter_cold = np.where(g_rvs_mag[cold_stars] >= 11)
 
-    v_rad_bias[brighter_cold] = 0
-    v_rad_bias[fainter_cold] = 0.02755 * g_rvs_mag[fainter_cold]**2 \
+    radial_velocity_bias[brighter_cold] = 0
+    radial_velocity_bias[fainter_cold] = 0.02755 * g_rvs_mag[fainter_cold]**2 \
         - 0.55863 * g_rvs_mag[fainter_cold] + 2.81129
 
     # Hotter stars (correction by Blomme et al.)
-    v_rad_bias[hot_stars] = 7.98 - 1.135 * g_rvs_mag[hot_stars]
+    radial_velocity_bias[hot_stars] = 7.98 - 1.135 * g_rvs_mag[hot_stars]
 
-    return v_rad_bias
+    return radial_velocity_bias
 
 
 def _sind(x):

@@ -5,7 +5,7 @@ from zero_point import zpt
 from pathlib import Path
 
 from . import utils
-from .utils.bias_corrections import (v_rad_bias_correction,
+from .utils.bias_corrections import (radial_velocity_bias_correction,
                                      pmra_bias_correction,
                                      pmdec_bias_correction)
 
@@ -48,8 +48,8 @@ class EquatorialData:
         instead, and the dataset will be read as in galactic components.
 
         Remember that the use of `convert=True` only stores the dataset
-        inside the class instance. See method `save_dataset()` to save a copy of
-        the converted dataset in HDF5 format.
+        inside the class instance. See method `save_dataset()` to save a copy
+        of the converted dataset in HDF5 format.
 
         A Gaia DR3 dataset needs to contain (at least) the equatorial
         coordinates and proper motions ('ra', 'dec', 'pmra', 'pmdec'),
@@ -62,17 +62,17 @@ class EquatorialData:
         deleted before conversion into galactic coordinates.
 
         When an instance of the class is called, with an argument `item`,
-        if `item` is one of ['source_id', 'l', 'b', 'plx', 'pml_star', 'pmb',
-        'v_rad', 'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g', 'g_rp'],
-        the corresponding column from the `gal` attribute is returned.
+        if `item` is one of ['source_id', 'l', 'b', 'parallax', 'pml',
+        'pmb', 'radial_velocity', 'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g',
+        'g_rp'], the corresponding column from the `gal` attribute is returned.
         Otherwhise it returns the item-th star from the `gal` attribute.
 
         Parameters
         ----------
         path:
             'str' or 'Path-like'. The path to the file containing data. For
-            differences between datasets in galactic cartesian components and as
-            a gaia dataset, read below.
+            differences between datasets in galactic cartesian components and
+            as a gaia dataset, read below.
         convert:
             'bool'. If `True`, data is assumed in ICRS coordinates and is
             converted into galactic coordinates, stored inside the `gal`
@@ -84,7 +84,7 @@ class EquatorialData:
         self.gal = None
 
         self.__names = ['source_id',
-                        'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad']
+                        'l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
         self.__phot_names = ['g_mag', 'bp_mag', 'rp_mag']
         self.eq_dtype = np.dtype([('source_id', np.int64),
                                   ('l', float),
@@ -98,10 +98,10 @@ class EquatorialData:
         self.gal_dtype = np.dtype([('source_id', np.int64),
                                    ('l', float),
                                    ('b', float),
-                                   ('plx', float),
-                                   ('pml_star', float),
+                                   ('parallax', float),
+                                   ('pml', float),
                                    ('pmb', float),
-                                   ('v_rad', float)])
+                                   ('radial_velocity', float)])
 
         if convert:
             self.gal = self.__open_dr3(path,
@@ -125,15 +125,16 @@ class EquatorialData:
         expressed in magnitudes.
 
         The saved dataset contains the equivalend of a numpy structured array
-        with fields 'source_id', 'l', 'b', 'plx', 'pml_star', 'pmb', 'v_rad',
-        'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g' and 'g_rp'.
+        with fields 'source_id', 'l', 'b', 'parallax', 'pml', 'pmb',
+        'radial_velocity', 'g_mag', 'bp_mag', 'rp_mag', 'bp_rp', 'bp_g' and
+        'g_rp'.
 
         Parameters
         ----------
         name:
             `None`, 'string' or 'Path'. The name of the output file to save
-            galactic coordinates data in. If `None`, it saves the data in a file
-            named 'gaia_edr3_galactic.hdf5'. File is saved in the current
+            galactic coordinates data in. If `None`, it saves the data in a
+            file named 'gaia_edr3_galactic.hdf5'. File is saved in the current
             working directory.
 
         """
@@ -157,9 +158,9 @@ class EquatorialData:
         """
         Method that converts the structured array contained within the `gal`
         attribute into an array of shape (N_stars, 8). The eight fields are,
-        in order (l, b, plx, pml_star, pmb, v_rad), where
+        in order (l, b, parallax, pml, pmb, radial_velocity), where
 
-            `pml_star = mu_l * cos(b)`.
+            `pml = mu_l * cos(b)`.
 
         Returns
         -------
@@ -168,12 +169,12 @@ class EquatorialData:
         """
         l = self('l')
         b = self('b')
-        plx = self('plx')
-        pml = self('pml_star')
+        parallax = self('parallax')
+        pml = self('pml')
         pmb = self('pmb')
-        v_rad = self('v_rad')
+        radial_velocity = self('radial_velocity')
 
-        return np.vstack((l, b, plx, pml, pmb, v_rad)).T
+        return np.vstack((l, b, parallax, pml, pmb, radial_velocity)).T
 
     def __open_dr3(self, path,
                    ruwe=None,
@@ -277,8 +278,8 @@ class EquatorialData:
 
         # Radial Velocity bias correction
         # (Katz et al. (2022), Blomme et al. (2022))
-        v_rad_corr = v_rad_bias_correction(data)
-        data['radial_velocity'] -= v_rad_corr
+        radial_velocity_corr = radial_velocity_bias_correction(data)
+        data['radial_velocity'] -= radial_velocity_corr
 
         # Proper motion bias correction
         # (Cantat-Gaudin and Brandt, 2021)
@@ -300,23 +301,23 @@ class EquatorialData:
         return dset['data']
 
     def __eq_to_gal(self, data):
-        pml_star = []
+        pml = []
         pmb = []
 
         for s in range(data['source_id'].shape[0]):
-            pml_star_s, pmb_s = self.__pm_conversion(data[:][s])
+            pml_s, pmb_s = self.__pm_conversion(data[:][s])
 
-            pml_star.append(pml_star_s)
+            pml.append(pml_s)
             pmb.append(pmb_s)
 
         data_gal = np.zeros(len(data), dtype=self.gal_dtype)
         data_gal['source_id'] = data['source_id']
         data_gal['l'] = data['l']
         data_gal['b'] = data['b']
-        data_gal['plx'] = data['parallax']
-        data_gal['pml_star'] = pml_star
+        data_gal['parallax'] = data['parallax']
+        data_gal['pml'] = pml
         data_gal['pmb'] = pmb
-        data_gal['v_rad'] = data['radial_velocity']
+        data_gal['radial_velocity'] = data['radial_velocity']
         # data_gal['g_mag'] = data['phot_g_mean_mag']
         # data_gal['bp_mag'] = data['phot_bp_mean_mag']
         # data_gal['rp_mag'] = data['phot_rp_mean_mag']
@@ -354,10 +355,10 @@ class EquatorialData:
         mu_icrs = p_icrs * data['pmra'] + q_icrs * data['pmdec']
         mu_gal = utils.A_G_INV.dot(mu_icrs)
 
-        pml_star = np.dot(p_gal, mu_gal)
+        pml = np.dot(p_gal, mu_gal)
         pmb = np.dot(q_gal, mu_gal)
 
-        return pml_star, pmb
+        return pml, pmb
 
     def __call__(self, item):
         if item in self.gal_dtype.names:

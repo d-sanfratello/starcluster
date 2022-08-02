@@ -68,7 +68,7 @@ def f_sigma_wrapper(df_row):
     return f_sigma
 
 
-def v_rad_wrapper(df_row):
+def radial_velocity_wrapper(df_row):
     # Radial velocity bias correction
     # for rv_template_teff < 8500 K the correction is the one in equation (5)
     # from `Properties and validation of the radial velocities` by Katz, D.,
@@ -80,20 +80,20 @@ def v_rad_wrapper(df_row):
     cold_stars = np.where(rv_teff < 8500)
     hot_stars = np.where(rv_teff >= 8500)
 
-    v_rad_bias = np.zeros_like(g_rvs_mag)
+    radial_velocity_bias = np.zeros_like(g_rvs_mag)
 
     # Colder stars (correction by Katz et al.)
     brighter_cold = np.where(g_rvs_mag[cold_stars] < 11)
     fainter_cold = np.where(g_rvs_mag[cold_stars] >= 11)
 
-    v_rad_bias[brighter_cold] = 0
-    v_rad_bias[fainter_cold] = 0.02755 * g_rvs_mag[fainter_cold]**2 \
+    radial_velocity_bias[brighter_cold] = 0
+    radial_velocity_bias[fainter_cold] = 0.02755 * g_rvs_mag[fainter_cold]**2 \
         - 0.55863 * g_rvs_mag[fainter_cold] + 2.81129
 
     # Hotter stars (correction by Blomme et al.)
-    v_rad_bias[hot_stars] = 7.98 - 1.135 * g_rvs_mag[hot_stars]
+    radial_velocity_bias[hot_stars] = 7.98 - 1.135 * g_rvs_mag[hot_stars]
 
-    return v_rad_bias
+    return radial_velocity_bias
 
 
 def _sind(x):
@@ -241,7 +241,7 @@ def read_data(file, ruwe=None):
 
     # Radial Velocity bias correction
     # (Katz et al. (2022), Blomme et al. (2022))
-    v_rad_corr = df.apply(v_rad_wrapper, axis=1)
+    radial_velocity_corr = df.apply(radial_velocity_wrapper, axis=1)
 
     # Proper motion bias correction
     # (Cantat-Gaudin and Brandt, 2021)
@@ -253,7 +253,7 @@ def read_data(file, ruwe=None):
                       df['parallax'] - zero_point,
                       df['pmra'] - pmra_corr,
                       df['pmdec'] - pmdec_corr,
-                      df['radial_velocity'] - v_rad_corr]).T
+                      df['radial_velocity'] - radial_velocity_corr]).T
     covs = np.array([
         fill_matrix(*[df[name][i] for name in names]
                     ) for i in range(len(means))])

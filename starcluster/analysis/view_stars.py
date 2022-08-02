@@ -25,8 +25,8 @@ def __masyr_to_kms(pm, dist):
 
 
 def __eq_to_galactic(data):
-    distances = (1 / data['plx']) / PC2KPC  # pc
-    pml = __masyr_to_kms(data['pml_star'], distances)  # pm_l_cosb
+    distances = (1 / data['parallax']) / PC2KPC  # pc
+    pml = __masyr_to_kms(data['pml'], distances)  # pm_l_cosb
     pmb = __masyr_to_kms(data['pmb'], distances)
 
     l = np.deg2rad(data['l'])
@@ -53,7 +53,7 @@ def __eq_to_galactic(data):
     r_gal = np.cross(p_gal, q_gal)
 
     # total proper motion in ICRS system and then converted to galactic.
-    mu_gal = p_gal * pml + q_gal * pmb + r_gal * data['v_rad']
+    mu_gal = p_gal * pml + q_gal * pmb + r_gal * data['radial_velocity']
 
     cartesian_data = np.array([(pos_gal[0], pos_gal[1], pos_gal[2],
                                 mu_gal[0], mu_gal[1], mu_gal[2])],

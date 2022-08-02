@@ -42,11 +42,11 @@ A_G_INV = np.array([
 
 
 class ExpectedValues:
-    __keys = ['ra', 'dec', 'l', 'b', 'plx',
-              'pmra', 'pmdec', 'v_rad']
+    __keys = ['ra', 'dec', 'l', 'b', 'parallax',
+              'pmra', 'pmdec', 'radial_velocity']
     __mags = ['g_mag', 'bp_mag', 'rp_mag',
               'bp_rp', 'bp_g', 'g_rp']
-    __data = ['l', 'b', 'plx', 'pml', 'pmb', 'v_rad']
+    __data = ['l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
 
     def __init__(self, expected):
         """
@@ -64,17 +64,18 @@ class ExpectedValues:
         ----------
         expected:
             'dictionary'. The expected keys are 'ra', 'dec', 'pmra', 'pmdec',
-            'plx', 'v_rad', 'l' and 'b'. Optionally, any of the photometric
-            bands from Gaia can be set (as 'g_mag', 'bp_mag', 'rp_mag') and
-            any of the color indices can be set (as 'bp_rp', 'bp_g' or 'g_rp').
+            'parallax', 'radial_velocity', 'l' and 'b'. Optionally, any of the
+            photometric bands from Gaia can be set (as 'g_mag', 'bp_mag',
+            'rp_mag') and any of the color indices can be set (as 'bp_rp',
+            'bp_g' or 'g_rp').
 
         Returns
         -------
         expected:
             'numpy.ndarray'. When the instance is called, it returns a
             'np.ndarray' containing the expected values, in order, for 'l',
-            'b', 'plx', 'pml', 'pmb', 'v_rad' and, the photometric band and
-            color index used.
+            'b', 'parallax', 'pml', 'pmb', 'radial_velocity' and, the
+            photometric band and color index used.
 
         """
         for k in self.__keys:
@@ -200,25 +201,24 @@ def dpgmm(
 
     l = dataset('l')
     b = dataset('b')
-    plx = dataset('plx')
-    pml = dataset('pml_star')
+    parallax = dataset('parallax')
+    pml = dataset('pml')
     pmb = dataset('pmb')
-    v_rad = dataset('v_rad')
+    radial_velocity = dataset('radial_velocity')
     # mag_ds = dataset(mag)
     # c_index_ds = dataset(c_index)
 
-    columns_list = [l, b, plx, pml, pmb, v_rad]#, mag_ds, c_index_ds]
+    columns_list = [l, b, parallax, pml, pmb, radial_velocity]
 
     bounds = [[l.min() - epsilon, l.max() + epsilon],
               [b.min() - epsilon, b.max() + epsilon],
-              [plx.min() - epsilon, plx.max() + epsilon],
+              [parallax.min() - epsilon, parallax.max() + epsilon],
               [pml.min() - epsilon, pml.max() + epsilon],
               [pmb.min() - epsilon, pmb.max() + epsilon],
-              [v_rad.min() - epsilon, v_rad.max() + epsilon]]#,
-              # [mag_ds.min() - epsilon, mag_ds.max() + epsilon],
-              # [c_index_ds.min() - epsilon, c_index_ds.max() + epsilon]]
+              [radial_velocity.min() - epsilon,
+               radial_velocity.max() + epsilon]]
 
-    samples = dataset.as_array()#mag=mag, c_index=c_index)
+    samples = dataset.as_array()
 
     if epsilon == 0:
         # FIXME: to be tested.
@@ -251,9 +251,9 @@ def plot_multidim(draws, samples=None, out_folder='.', name='density',
     """
     From figaro.utils.py at https://github.com/sterinaldi/figaro
 
-    Plot the recovered multidimensional distribution along with samples from the
-    true distribution (if available) as corner plot, with the single mixture
-    gaussians added over the plot
+    Plot the recovered multidimensional distribution along with samples from
+    the true distribution (if available) as corner plot, with the single
+    mixture gaussians added over the plot
 
     Parameters
     ----------
@@ -344,7 +344,8 @@ def plot_multidim(draws, samples=None, out_folder='.', name='density',
         # Samples (if available)
         if samples is not None:
             ax.hist(samples[:, column],
-                    bins=int(np.sqrt(len(samples[:, column]))), histtype='step',
+                    bins=int(np.sqrt(len(samples[:, column]))),
+                    histtype='step',
                     density=True)
         # CR
         ax.fill_between(x, p[95], p[5], color='mediumturquoise', alpha=0.5)
