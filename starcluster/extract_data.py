@@ -4,7 +4,7 @@ import numpy as np
 from zero_point import zpt
 from pathlib import Path
 
-from . import utils
+from const import A_G_INV
 from .utils.bias_corrections import (radial_velocity_bias_correction,
                                      pmra_bias_correction,
                                      pmdec_bias_correction)
@@ -79,6 +79,9 @@ class EquatorialData:
             attribute. When `False` data is assumed as already converted into
             galactic coordinates and is directly stored into the `gal`
             attribute. Default is `True`.
+        ruwe:
+        galaxy_cand:
+        quasar_cand:
 
         """
         self.gal = None
@@ -353,7 +356,7 @@ class EquatorialData:
 
         # total proper motion in ICRS system and then converted to galactic.
         mu_icrs = p_icrs * data['pmra'] + q_icrs * data['pmdec']
-        mu_gal = utils.A_G_INV.dot(mu_icrs)
+        mu_gal = A_G_INV.dot(mu_icrs)
 
         pml = np.dot(p_gal, mu_gal)
         pmb = np.dot(q_gal, mu_gal)
