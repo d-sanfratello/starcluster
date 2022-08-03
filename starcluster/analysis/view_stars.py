@@ -160,7 +160,6 @@ def quiver_plot(data,
 
     lower_bounds = np.min([data['x'], data['y'], data['z']], axis=1)
     upper_bounds = np.max([data['x'], data['y'], data['z']], axis=1)
-
     mid_point = 0.5 * (upper_bounds + lower_bounds)
 
     for el in elev:
@@ -178,21 +177,33 @@ def quiver_plot(data,
             ax.set_ylim(lower_bounds[1], upper_bounds[1])
             ax.set_zlim(lower_bounds[2], upper_bounds[2])
 
-            if line_of_sight:
-                ax.quiver(0, 0, 0,
-                          mid_point[0], mid_point[1], mid_point[2],
-                          arrow_length_ratio=1/np.linalg.norm(mid_point),
-                          length=1,
-                          color='red',
-                          label='Line of sight')
-
             if true_value is not None:
                 true_value = true_value[:6]
                 exp_value = __exp_to_cartesian_array(true_value)
+                norm_array = np.array([exp_value['x'],
+                                       exp_value['y'],
+                                       exp_value['z']])
+                exp_value_norm = np.linalg.norm(norm_array)
 
                 ax.scatter(exp_value['x'], exp_value['y'], exp_value['z'],
                            color='orangered',
                            label='Known position')
+
+            if line_of_sight:
+                if true_value is not None:
+                    ax.quiver(0, 0, 0,
+                              exp_value['x'], exp_value['y'], exp_value['z'],
+                              arrow_length_ratio=1/exp_value_norm,
+                              length=1,
+                              color='red',
+                              label='Line of sight')
+                else:
+                    ax.quiver(0, 0, 0,
+                              mid_point[0], mid_point[1], mid_point[2],
+                              arrow_length_ratio=1/np.linalg.norm(mid_point),
+                              length=1,
+                              color='red',
+                              label='Line of sight')
 
             ax.legend(loc='best')
 
