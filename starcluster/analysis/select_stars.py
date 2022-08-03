@@ -9,9 +9,9 @@ def by_parallax(data, parallax_min=None, parallax_max=None):
     new_data = data[:]
 
     if parallax_min is not None:
-        new_data = data[data['parallax'] >= parallax_min]
+        new_data = new_data[new_data['parallax'] >= parallax_min]
     if parallax_max is not None:
-        new_data = data[data['parallax'] <= parallax_max]
+        new_data = new_data[new_data['parallax'] <= parallax_max]
 
     return new_data
 
@@ -29,9 +29,9 @@ def by_proper_motion(data, axis, pm_min=None, pm_max=None):
         axis = f'pm{axis}'
 
     if pm_min is not None:
-        new_data = data[data[axis] >= pm_min]
+        new_data = new_data[new_data[axis] >= pm_min]
     if pm_max is not None:
-        new_data = data[data[axis] <= pm_max]
+        new_data = new_data[new_data[axis] <= pm_max]
 
     return new_data
 
