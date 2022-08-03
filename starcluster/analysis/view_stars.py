@@ -226,3 +226,81 @@ def quiver_plot(data,
                                      f'{name}_az{az}_el{el}.pdf'),
                                 format='pdf',
                                 bbox_inches='tight')
+
+
+def equatorial_quiver_plot(data,
+                           out_folder='.', name='equatorial_3d',
+                           units=[r'mas', r'deg', r'deg',
+                                  r'km/s', r'mas/yr', r'mas/yr'],
+                           show=False, save=True, subfolder=False,
+                           true_value=None,
+                           figsize=7,
+                           elev=45,
+                           azim=45,
+                           scale=3e1):
+
+    labels = ['$plx$', 'l', 'b']
+    if units is not None:
+        labels = [lab + f' $[{u}]$'
+                  if not u == '' else lab for lab, u in zip(labels, units[:3])]
+
+    fig = plt.figure(figsize=(figsize, figsize))
+    ax = fig.add_subplot(111, projection='3d')
+
+    if not hasattr(elev, '__iter__'):
+        elev = [elev]
+    if not hasattr(azim, '__iter__'):
+        azim = [azim]
+
+    lower_bounds = np.min([data['parallax'], data['l'], data['b']], axis=1)
+    upper_bounds = np.max([data['parallax'], data['l'], data['b']], axis=1)
+
+    v_rad = data['radial_velocity'] - data['radial_velocity'].mean()
+    pml = data['pml'] - data['pml'].mean()
+    pmb = data['pmb'] - data['pmb'].mean()
+
+    for el in elev:
+        for az in azim:
+            ax.view_init(el, az)
+            ax.quiver(data['parallax'], data['l'], data['b'],
+                      v_rad, pml, pmb,
+                      arrow_length_ratio=0.1,
+                      length=1/scale)
+            ax.set_xlabel(labels[0])
+            ax.set_ylabel(labels[1])
+            ax.set_zlabel(labels[2])
+
+            ax.set_xlim(lower_bounds[0], upper_bounds[0])
+            ax.set_ylim(upper_bounds[1], lower_bounds[1])
+            ax.set_zlim(lower_bounds[2], upper_bounds[2])
+
+            if true_value is not None:
+                true_value = true_value[:6]
+
+                ax.scatter(true_value[2],
+                           true_value[0],
+                           true_value[1],
+                           color='orangered',
+                           label='Known position')
+
+            ax.legend(loc='best')
+
+            if show:
+                plt.show()
+            if save:
+                if not subfolder:
+                    fig.savefig(Path(out_folder,
+                                     f'{name}_az{az}_el{el}.pdf'),
+                                format='pdf',
+                                bbox_inches='tight')
+                else:
+                    if not Path(out_folder, 'eq_3d').exists():
+                        try:
+                            Path(out_folder, 'eq_3d').mkdir()
+                        except FileExistsError:
+                            pass
+                    fig.savefig(Path(out_folder,
+                                     'eq_3d',
+                                     f'{name}_az{az}_el{el}.pdf'),
+                                format='pdf',
+                                bbox_inches='tight')
