@@ -23,7 +23,7 @@ class SimulateParallax:
                                        scale=sigma,
                                        size=n_stars)  # mas
 
-        q = np.percentile(measured_parallax, [5, 95])  # mas
+        q = np.percentile(measured_parallax, [16, 84])  # mas
         q_dist = 1 / q  # kpc
 
         recovered_dist = 1 / measured_parallax  # kpc
@@ -46,7 +46,7 @@ class SimulateParallax:
             'error_over_recovered': error_over_recovered,
             'relative_error_target': norm_sigma_target,
             'ratio_good': ratio_good,
-            '5-95_perc': q_dist  # kpc
+            '16-84_perc': q_dist  # kpc
         }
 
     @staticmethod
@@ -57,7 +57,7 @@ class SimulateParallax:
         std = sim['recovered_std']
         true_dist = sim['true_dist']
         rel_parallax = sim['relative_error']
-        q = sim['5-95_perc']
+        q = sim['16-84_perc']
 
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
@@ -86,12 +86,12 @@ class SimulateParallax:
 
         normal_approx = norm(loc=mean,
                              scale=std)
-        q_approx = normal_approx.interval(0.9)
-        out95perc = recovered[recovered > q_approx[1]].shape[0]
-        in5perc = recovered[recovered <= q_approx[0]].shape[0]
+        q_approx = normal_approx.interval(0.683)
+        out84perc = recovered[recovered > q_approx[1]].shape[0]
+        in16perc = recovered[recovered <= q_approx[0]].shape[0]
         ax.axvline(q_approx[0], 0, 1,
                    color='orange', linestyle='solid', linewidth=1,
-                   label='5-95% in approx. gaussian')
+                   label='16-84% in approx. gaussian')
         ax.axvline(q_approx[1], 0, 1,
                    color='orange', linestyle='solid', linewidth=1)
 
@@ -99,15 +99,16 @@ class SimulateParallax:
                      f'$\sigma_r \sim$ {std:.3f} kpc\n'
                      f'$r_t$ = {true_dist} kpc; $\sigma_\pi$ ='
                      f' {100 * rel_parallax:.1f}%\n'
-                     f'Data outside 95% (approx. from $N(r | \mu_r, '
+                     f'Data outside 84% (approx. from $N(r | \mu_r, '
                      f'\sigma_r)$) = '
-                     f'{100 * out95perc / n_stars:.3f}%\n'
-                     f'Data within 5% (approx. from $N(r | \mu_r, '
+                     f'{100 * out84perc / n_stars:.3f}%\n'
+                     f'Data within 16% (approx. from $N(r | \mu_r, '
                      f'\sigma_r)$) = '
-                     f'{100 * in5perc / n_stars:.3f}%\n'
+                     f'{100 * in16perc / n_stars:.3f}%\n'
+                     f'c.l. = {q_approx[0]:.2E} kpc \t {q_approx[1]:.2E} kpc\n'
                      f'skew:{skew(recovered, bias=False):.3f}    '
                      f'kurt:{kurtosis(recovered, bias=False):.3f}; '
-                     f'{n_stars} points')
+                     f'{n_stars:.2E} points')
 
         ax.set_xlabel('r [kpc]')
         ax.set_ylabel('Probability')
@@ -116,8 +117,8 @@ class SimulateParallax:
 
         plt.tight_layout()
         path = Path(os.getcwd()).joinpath('../../skew_plots')
-        file = path.joinpath(f'{true_dist:.0f}kpc_'
-                             f'{100*rel_parallax:.0f}percent')
+        file = path.joinpath(f'{true_dist:.2E}kpc_'
+                             f'{100*rel_parallax:.0f}percent.pdf')
         plt.savefig(file,
                     format='pdf')
 
@@ -125,7 +126,7 @@ class SimulateParallax:
 if __name__ == '__main__':
     simulation = SimulateParallax()
 
-    sim = simulation.simulate(dist_true=1,
+    sim = simulation.simulate(dist_true=0.5,
                               relative_error=0.2, norm_sigma_target=1,
                               n_stars=1e8)
 
