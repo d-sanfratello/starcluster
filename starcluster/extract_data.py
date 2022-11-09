@@ -269,9 +269,12 @@ class EquatorialData:
         # Fabricius et al., "Gaia Early Data Release 3. Catalogue
         # validation", Astronomy and Astrophysics, vol. 649, p. A5, May 2021,
         # doi: 10.1051/0004-6361/202039834.
-        idx = np.where((data['parallax_over_error'] >= parallax_over_error) |
-                       (data['parallax_over_error'] <= -parallax_over_error))
-        data = data[idx]
+        if parallax_over_error is not None:
+            idx = np.where(
+                (data['parallax_over_error'] >= parallax_over_error) |
+                (data['parallax_over_error'] <= -parallax_over_error)
+            )
+            data = data[idx]
 
         # RUWE correction as in Lindegren, L. 2018, technical note
         # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
