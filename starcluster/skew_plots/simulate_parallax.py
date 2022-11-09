@@ -127,7 +127,7 @@ if __name__ == '__main__':
     simulation = SimulateParallax()
 
     sim = simulation.simulate(dist_true=0.5,
-                              relative_error=0.2, norm_sigma_target=1,
+                              relative_error=0.05, norm_sigma_target=1,
                               n_stars=1e6)
 
     simulation.plot_distributtion(sim=sim, figsize=(10, 8))
