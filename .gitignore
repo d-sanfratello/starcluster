@@ -131,5 +131,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ignored files/folders
 /all-sky.ipynb
 /figaro-starclusters.ipynb
+/skew_plots/
