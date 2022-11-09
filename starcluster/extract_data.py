@@ -20,7 +20,8 @@ class EquatorialData:
                        'ecl_lat', 'grvs_mag',
                        'rv_template_teff', 'astrometric_primary_flag',
                        'phot_g_mean_mag',
-                       'in_qso_candidates', 'in_galaxy_candidates']
+                       'in_qso_candidates', 'in_galaxy_candidates',
+                       'parallax_over_error']
 
     nu_for_solution = ['nu_eff_used_in_astrometry', 'pseudocolour']
 
@@ -30,7 +31,8 @@ class EquatorialData:
 
     def __init__(self, path, *, convert=True,
                  ruwe=None,
-                 galaxy_cand=None, quasar_cand=None):
+                 galaxy_cand=None, quasar_cand=None,
+                 parallax_over_error=None):
         # fixme: check docstring
         """
         Class to open an existing file containing astrometric data.
@@ -82,6 +84,7 @@ class EquatorialData:
         ruwe:
         galaxy_cand:
         quasar_cand:
+        parallax_over_error:
 
         """
         self.gal = None
@@ -110,7 +113,8 @@ class EquatorialData:
             self.gal = self.__open_dr3(path,
                                        galaxy_cand=galaxy_cand,
                                        quasar_cand=quasar_cand,
-                                       ruwe=ruwe)
+                                       ruwe=ruwe,
+                                       parallax_over_error=parallax_over_error)
         else:
             self.gal = self.__open_galactic(path)
 
@@ -182,7 +186,8 @@ class EquatorialData:
     def __open_dr3(self, path,
                    ruwe=None,
                    galaxy_cand=None,
-                   quasar_cand=None):
+                   quasar_cand=None,
+                   parallax_over_error=None):
         # FIXME: checked papers:
         # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
 
@@ -254,6 +259,19 @@ class EquatorialData:
         for col in self.astrometry_cols:
             idx = np.where(~np.isnan(data[col]))
             data = data[idx]
+
+        # Data with a precision higher than the given parallax_over_error.
+        # Data is selected both on the positive and negative side of
+        # parallaxes, to ensure the least bias is inserted into the dataset.
+        # See G. Collaboration, "Gaia Early Data Release 3. Summary of the
+        # contents and survey properties", Astronomy and Astrophysics,
+        # vol. 649, p. A1, May 2021, doi: 10.1051/0004-6361/202039657 and C.
+        # Fabricius et al., "Gaia Early Data Release 3. Catalogue
+        # validation", Astronomy and Astrophysics, vol. 649, p. A5, May 2021,
+        # doi: 10.1051/0004-6361/202039834.
+        idx = np.where((data['parallax_over_error'] >= parallax_over_error) |
+                       (data['parallax_over_error'] <= -parallax_over_error))
+        data = data[idx]
 
         # RUWE correction as in Lindegren, L. 2018, technical note
         # GAIA-C3-TN-LU-LL-124. Their suggested value is 1.4
