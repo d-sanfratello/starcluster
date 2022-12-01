@@ -29,7 +29,8 @@ class EquatorialData:
                        'phot_bp_mean_mag',
                        'phot_rp_mean_mag']
 
-    def __init__(self, path, *, convert=True,
+    def __init__(self, path, *,
+                 convert=True,
                  ruwe=None,
                  galaxy_cand=None, quasar_cand=None,
                  parallax_over_error=None):
