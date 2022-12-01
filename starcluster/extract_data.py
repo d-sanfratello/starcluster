@@ -191,6 +191,8 @@ class EquatorialData:
         # FIXME: checked papers:
         # 10.1051/0004-6361/202039587 - Photometric (Riello+2021)
 
+        path = Path(path)
+
         data = np.genfromtxt(path,
                              delimiter=',',
                              names=True,
@@ -297,6 +299,13 @@ class EquatorialData:
                                  data['pseudocolour'],
                                  data['ecl_lat'],
                                  data['astrometric_params_solved'])
+
+        with h5py.File(path.parent.joinpath('zpt_corr.hdf5'), "w") as f:
+            dset_plx = f.create_dataset('orig_parallax')
+            dset_plx[0:] = data['parallax']
+
+            dset_zpt = f.create_dataset('zpt')
+            dset_zpt[0:] = zero_point
 
         data['parallax'] -= zero_point
 
