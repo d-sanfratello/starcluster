@@ -89,6 +89,7 @@ class EquatorialData:
 
         """
         self.gal = None
+        self.cov = None
 
         self.__names = ['source_id',
                         'l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
@@ -109,15 +110,19 @@ class EquatorialData:
                                    ('pml', float),
                                    ('pmb', float),
                                    ('radial_velocity', float)])
+        self.gal_cov_dtype = np.dtype([('source_id', np.int64),
+                                       ('cov', np.ndarray)])
 
         if convert:
-            self.gal = self.__open_dr3(path,
-                                       galaxy_cand=galaxy_cand,
-                                       quasar_cand=quasar_cand,
-                                       ruwe=ruwe,
-                                       parallax_over_error=parallax_over_error)
+            self.gal, self.cov = self.__open_dr3(
+                path,
+                galaxy_cand=galaxy_cand,
+                quasar_cand=quasar_cand,
+                ruwe=ruwe,
+                parallax_over_error=parallax_over_error
+            )
         else:
-            self.gal = self.__open_galactic(path)
+            self.gal, self.cov = self.__open_galactic(path)
 
     def save_dataset(self, name=None):
         # fixme: check docstring
@@ -155,13 +160,18 @@ class EquatorialData:
             name.suffix = ".hdf5"
 
         with h5py.File(name, "w") as f:
-            dset = f.create_dataset('data',
-                                    shape=self.gal.shape,
-                                    dtype=self.gal_dtype)
+            dset_data = f.create_dataset('data',
+                                         shape=self.gal.shape,
+                                         dtype=self.gal_dtype)
+            dset_data[0:] = self.gal
 
-            dset[0:] = self.gal
+            for _, source in enumerate(self.cov):
+                dset_cov = f.create_dataset(str(source['source_id']),
+                                            shape=(6, 6),
+                                            dtype=float)
+                dset_cov[0:] = self.cov['cov'][_]
 
-    def as_array(self):
+    def as_array(self, dataset='data'):
         # fixme: check docstring
         """
         Method that converts the structured array contained within the `gal`
@@ -175,14 +185,26 @@ class EquatorialData:
         `np.ndarray` of shape (N_stars, 6), containing the six kinematic
         columns N_stars stars in the catalog.
         """
-        l = self['l']
-        b = self['b']
-        parallax = self['parallax']
-        pml = self['pml']
-        pmb = self['pmb']
-        radial_velocity = self['radial_velocity']
+        if dataset == 'data':
+            l = self['l']
+            b = self['b']
+            parallax = self['parallax']
+            pml = self['pml']
+            pmb = self['pmb']
+            radial_velocity = self['radial_velocity']
 
-        return np.vstack((l, b, parallax, pml, pmb, radial_velocity)).T
+            return np.vstack((l, b, parallax, pml, pmb, radial_velocity)).T
+        elif dataset == 'cov':
+            covs = np.zeros(shape=(self['source_id'].shape[0], 6, 6))
+
+            for _, c in enumerate(self.cov['cov']):
+                covs[_] = c
+
+            return covs
+        else:
+            raise ValueError(
+                f"Unknown dataset type {dataset}. Expect `data` or `cov`."
+            )
 
     def __open_dr3(self, path,
                    ruwe=None,
@@ -302,10 +324,14 @@ class EquatorialData:
                                  data['astrometric_params_solved'])
 
         with h5py.File(path.parent.joinpath('zpt_corr.hdf5'), "w") as f:
-            dset_plx = f.create_dataset('orig_parallax')
+            dset_plx = f.create_dataset('orig_parallax',
+                                        shape=zero_point.shape,
+                                        dtype=float)
             dset_plx[0:] = data['parallax']
 
-            dset_zpt = f.create_dataset('zpt')
+            dset_zpt = f.create_dataset('zpt',
+                                        shape=zero_point.shape,
+                                        dtype=float)
             dset_zpt[0:] = zero_point
 
         data['parallax'] -= zero_point
@@ -325,14 +351,29 @@ class EquatorialData:
         pmdec_corr = pmdec_bias_correction(data)
         data['pmdec'] -= pmdec_corr
 
-        data_gal = self.__eq_to_gal(data)
+        data_gal, data_err = self.__eq_to_gal(data)
 
-        return data_gal
+        return data_gal, data_err
 
     def __open_galactic(self, path):
         dset = h5py.File(path, 'r')
 
-        return dset['data']
+        sources = list(dset.keys())
+        sources.remove('data')
+
+        data = dset['data']
+        cov = np.zeros(shape=data.shape,
+                       dtype=self.gal_cov_dtype)
+        source_ids = np.array(sources).astype(np.int64)
+        cov['source_id'] = source_ids
+
+        cov_matrices = []
+        for _, source in enumerate(sources):
+            cov_matrix = np.array(dset[source]).reshape((6, 6))
+            cov_matrices.append(cov_matrix)
+        cov['cov'] = cov_matrices
+
+        return dset['data'], cov
 
     def __eq_to_gal(self, data):
         pml = []
@@ -359,9 +400,24 @@ class EquatorialData:
         # data_gal['bp_g'] = data_gal['bp_mag'] - data_gal['g_mag']
         # data_gal['g_rp'] = data_gal['g_mag'] - data_gal['rp_mag']
 
-        return data_gal
+        cov_matrices = []
+        for _, s in enumerate(data['source_id']):
+            cov_matrices.append(self.__error_propagation(data[:][_]))
+
+        data_err = np.zeros(data.shape[0], dtype=self.gal_cov_dtype)
+        data_err['source_id'] = data['source_id']
+        data_err['cov'] = cov_matrices
+
+        return data_gal, data_err
 
     def __pm_conversion(self, data):
+        # [1] Butkevich, A. and Lindegren, L., ‘4.1.7 Transformations of
+        # astrometric data and error propagation ‣ Gaia Data Release 3
+        # Documentation release 1.1’.
+        #   https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/
+        #   chap_cu3ast/sec_cu3ast_intro/ssec_cu3ast_intro_tansforms.html
+        # (accessed Dec. 01, 2022).
+
         ra = np.deg2rad(data['ra'])
         dec = np.deg2rad(data['dec'])
         l = np.deg2rad(data['l'])
@@ -393,6 +449,76 @@ class EquatorialData:
         pmb = np.dot(q_gal, mu_gal)
 
         return pml, pmb
+
+    def __error_propagation(self, data):
+        # [1] Butkevich, A. and Lindegren, L., ‘4.1.7 Transformations of
+        # astrometric data and error propagation ‣ Gaia Data Release 3
+        # Documentation release 1.1’.
+        #   https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/
+        #   chap_cu3ast/sec_cu3ast_intro/ssec_cu3ast_intro_tansforms.html
+        # (accessed Dec. 01, 2022).
+
+        ra = np.deg2rad(data['ra'])
+        dec = np.deg2rad(data['dec'])
+        l = np.deg2rad(data['l'])
+        b = np.deg2rad(data['b'])
+
+        # unit vector for proper motion component in RA [mas/yr]
+        p_icrs = np.array([-np.sin(ra),
+                           np.cos(ra),
+                           0])
+
+        # unit vector for proper motion component in DEC [mas/yr]
+        q_icrs = np.array([-np.cos(ra) * np.sin(dec),
+                           -np.sin(ra) * np.sin(dec),
+                           np.cos(dec)])
+
+        # same vectors, but in galactic coordinates
+        p_gal = np.array([-np.sin(l),
+                          np.cos(l),
+                          0])
+        q_gal = np.array([-np.cos(l) * np.sin(b),
+                          -np.sin(l) * np.sin(b),
+                          np.cos(b)])
+
+        rot_gal = np.column_stack((p_gal, q_gal))
+        rot_ICRS = np.column_stack((p_icrs, q_icrs))
+
+        G = np.dot(rot_gal.T, np.dot(A_G_INV, rot_ICRS))
+        J = np.array([[G[0, 0], G[0, 1], 0,       0,       0],
+                      [G[1, 0], G[1, 1], 0,       0,       0],
+                      [      0,       0, 1,       0,       0],
+                      [      0,       0, 0, G[0, 0], G[0, 1]],
+                      [      0,       0, 0, G[1, 0], G[1, 1]]])
+
+        errs = [
+            'ra_error', 'dec_error', 'parallax_error', 'pmra_error',
+            'pmdec_error'
+        ]
+        cov_icrs_astrometric = np.zeros(shape=(5, 5), dtype=float)
+        for i, err_i in enumerate(errs):
+            for j, err_j in enumerate(errs):
+                cov = data[err_i] * data[err_j]
+                if i != j:
+                    errname_i = err_i.split('_error')[0]
+                    errname_j = err_j.split('_error')[0]
+                    try:
+                        corr_name = f'{errname_i}_{errname_j}_corr'
+                        corr = data[corr_name]
+                    except ValueError:
+                        corr_name = f'{errname_j}_{errname_i}_corr'
+                        corr = data[corr_name]
+
+                    cov *= corr
+                cov_icrs_astrometric[i, j] = cov
+
+        CJ_t = np.dot(cov_icrs_astrometric, J.T)
+        cov_gal_astrometric = np.dot(J, CJ_t)
+        cov_gal = np.zeros(shape=(6, 6), dtype=float)
+        cov_gal[0:5, 0:5] = cov_gal_astrometric
+        cov_gal[5, 5] = data['radial_velocity_error']**2
+
+        return cov_gal
 
     def __getitem__(self, item):
         return np.copy(self.gal[item])
