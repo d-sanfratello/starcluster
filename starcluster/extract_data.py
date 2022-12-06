@@ -323,6 +323,14 @@ class EquatorialData:
                                  data['ecl_lat'],
                                  data['astrometric_params_solved'])
 
+        # From Flynn et al (2022)
+        affected_stars = np.where((data['phot_g_mean_mag'] < 12) &
+                                  (data['phot_g_mean_mag'] > 1))
+        affected_stars_source_id = data['source_id'][affected_stars]
+        zpt_correction = 0.01  # mas
+        correction = np.zeros(shape=zero_point.shape)
+        correction[affected_stars] += zpt_correction
+
         with h5py.File(path.parent.joinpath('zpt_corr.hdf5'), "w") as f:
             dset_plx = f.create_dataset('orig_parallax',
                                         shape=zero_point.shape,
@@ -334,7 +342,13 @@ class EquatorialData:
                                         dtype=float)
             dset_zpt[0:] = zero_point
 
+            dset_corr = f.create_dataset('corr',
+                                         shape=zero_point.shape,
+                                         dtype=float)
+            dset_corr[0:] = correction
+
         data['parallax'] -= zero_point
+        data['parallax'] -= correction
 
         # Radial Velocity bias correction
         # (Katz et al. (2022), Blomme et al. (2022))
@@ -351,7 +365,7 @@ class EquatorialData:
         pmdec_corr = pmdec_bias_correction(data)
         data['pmdec'] -= pmdec_corr
 
-        data_gal, data_err = self.__eq_to_gal(data)
+        data_gal, data_err = self.__eq_to_gal(data, affected_stars_source_id)
 
         return data_gal, data_err
 
@@ -375,7 +389,7 @@ class EquatorialData:
 
         return dset['data'], cov
 
-    def __eq_to_gal(self, data):
+    def __eq_to_gal(self, data, correction_source_id):
         pml = []
         pmb = []
 
@@ -402,7 +416,8 @@ class EquatorialData:
 
         cov_matrices = []
         for _, s in enumerate(data['source_id']):
-            cov_matrices.append(self.__error_propagation(data[:][_]))
+            cov_matrices.append(self.__error_propagation(data[:][_],
+                                                         correction_source_id))
 
         data_err = np.zeros(data.shape[0], dtype=self.gal_cov_dtype)
         data_err['source_id'] = data['source_id']
@@ -450,7 +465,7 @@ class EquatorialData:
 
         return pml, pmb
 
-    def __error_propagation(self, data):
+    def __error_propagation(self, data, correction_source_id):
         # [1] Butkevich, A. and Lindegren, L., ‘4.1.7 Transformations of
         # astrometric data and error propagation ‣ Gaia Data Release 3
         # Documentation release 1.1’.
@@ -512,6 +527,10 @@ class EquatorialData:
                     cov *= corr
                 elif i == j and err_i.find('parallax') >= 0:
                     cov += VAR_SYS_PLX_SINGLE
+
+                    if data['source_id'] in correction_source_id:
+                        # extra correction error, if used
+                        cov += 2e-3**2  # mas^2
                 cov_icrs_astrometric[i, j] = cov
 
         CJ_t = np.dot(cov_icrs_astrometric, J.T)
