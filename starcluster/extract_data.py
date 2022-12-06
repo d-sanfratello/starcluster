@@ -4,7 +4,7 @@ import numpy as np
 from zero_point import zpt
 from pathlib import Path
 
-from .const import A_G_INV
+from .const import A_G_INV, VAR_SYS_PLX_SINGLE
 from .utils.bias_corrections import (radial_velocity_bias_correction,
                                      pmra_bias_correction,
                                      pmdec_bias_correction)
@@ -510,6 +510,8 @@ class EquatorialData:
                         corr = data[corr_name]
 
                     cov *= corr
+                elif i == j and err_i.find('parallax') >= 0:
+                    cov += VAR_SYS_PLX_SINGLE
                 cov_icrs_astrometric[i, j] = cov
 
         CJ_t = np.dot(cov_icrs_astrometric, J.T)
