@@ -325,7 +325,7 @@ class EquatorialData:
 
         # From Flynn et al (2022)
         affected_stars = np.where((data['phot_g_mean_mag'] < 12) &
-                                  (data['phot_g_mean_mag'] > 1))
+                                  (data['bp_rp'] > 1))
         affected_stars_source_id = data['source_id'][affected_stars]
         zpt_correction = 0.01  # mas
         correction = np.zeros(shape=zero_point.shape)
