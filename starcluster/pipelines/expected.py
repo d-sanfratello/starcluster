@@ -42,10 +42,7 @@ def main():
     cs_simbad = Simbad()
     cs_simbad.add_votable_fields('parallax', 'pmra', 'pmdec', 'velocity')
 
-    result = cs_simbad.query_object(obj_name)
-    print(result.colnames)
-    result = result.as_array()
-    print(result)
+    result = cs_simbad.query_object(obj_name).as_array()
 
     ra_list = un_string_coords(result['RA'][0])
     dec_list = un_string_coords(result['DEC'][0])
