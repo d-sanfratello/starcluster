@@ -10,7 +10,21 @@ class ExpectedValues:
               'bp_rp', 'bp_g', 'g_rp']
     __data = ['l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
 
-    def __init__(self, expected):
+    def __new__(cls, expected, from_file=False):
+        setattr(cls, '_ExpectedValues__save_names', list(cls.__data))
+        cls.__save_names.extend(['mag', 'c_index'])
+        save_dtype = np.dtype([
+            (name, float)
+            for name in cls.__save_names
+        ])
+        setattr(cls, '_ExpectedValues__save_dtype', save_dtype)
+
+        self = super().__new__(cls)
+        setattr(self, '_ExpectedValues__from_file', from_file)
+
+        return self
+
+    def __init__(self, expected, from_file=None):
         """
         Class to interpret the expected values for a cluster for the quantities
         used with the DPGMM, from the equatorial coordinates and relative
@@ -40,6 +54,10 @@ class ExpectedValues:
             photometric band and color index used.
 
         """
+        if self.__from_file is True:
+            self.__initialize_from_file(expected)
+            return
+
         for k in self.__keys:
             try:
                 setattr(self, k, expected[k])
@@ -82,6 +100,29 @@ class ExpectedValues:
 
         self.pml = np.dot(p_gal, mu_gal)
         self.pmb = np.dot(q_gal, mu_gal)
+
+    def __initialize_from_file(self, expected):
+        for k in self.__data:
+            setattr(self, k, expected[k][0])
+
+        setattr(self, '_ExpectedValues__mag', expected['mag'][0])
+        setattr(self, '_ExpectedValues__c_index', expected['c_index'][0])
+
+    def save(self, path):
+        array = self.__call__()
+        save_array = np.zeros(1, dtype=self.__save_dtype)
+        for _, name in enumerate(self.__save_dtype.names):
+            save_array[name] = array[_]
+
+        np.savetxt(
+            path, save_array
+        )
+
+    @classmethod
+    def load(cls, path):
+        expected = np.genfromtxt(path, dtype=cls.__save_dtype).reshape((1,))
+
+        return ExpectedValues(expected=expected, from_file=True)
 
     def __call__(self):
         arr = []
