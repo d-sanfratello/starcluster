@@ -27,6 +27,14 @@ class build_ext(_build_ext):
         self.include_dirs.append(np.get_include())
 
 
+scripts = [
+    'starcluster-expected=starcluster.pipelines.expected:main',
+]
+pymodules = [
+    'starcluster/pipelines/expected',
+]
+
+
 with open("requirements.txt") as requires_file:
     requirements = requires_file.read().split("\n")
 
@@ -41,7 +49,10 @@ setup(
     python_requires='>=3.7',
     packages=['starcluster'],
     install_requires=requirements,
+    pymodules=pymodules,
     include_dirs=[np.get_include()],
     setup_requires=['numpy~=1.21.5', 'cython~=0.29.24'],
-    entry_points={},
-    )
+    entry_points={
+        'console_scripts': scripts,
+    },
+)
