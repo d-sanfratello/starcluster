@@ -10,6 +10,7 @@ from .utils.bias_corrections import (radial_velocity_bias_correction,
                                      pmdec_bias_correction)
 
 
+# noinspection PyTypeChecker
 class EquatorialData:
     astrometry_cols = ['source_id',
                        'ra', 'dec', 'parallax',
@@ -91,6 +92,9 @@ class EquatorialData:
         self.gal = None
         self.cov = None
 
+        self.data_path = Path(path)
+        self.project_folder = self.data_path.parent.parent
+
         self.__names = ['source_id',
                         'l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
         self.__phot_names = ['g_mag', 'bp_mag', 'rp_mag']
@@ -115,14 +119,14 @@ class EquatorialData:
 
         if convert:
             self.gal, self.cov = self.__open_dr3(
-                path,
+                self.data_path,
                 galaxy_cand=galaxy_cand,
                 quasar_cand=quasar_cand,
                 ruwe=ruwe,
                 parallax_over_error=parallax_over_error
             )
         else:
-            self.gal, self.cov = self.__open_galactic(path)
+            self.gal, self.cov = self.__open_galactic(self.data_path)
 
     def save_dataset(self, name=None):
         # fixme: check docstring
@@ -152,12 +156,12 @@ class EquatorialData:
 
         """
         if name is None:
-            name = 'gaia_dr3_galactic.hdf5'
-        elif isinstance(name, str) and name.find(".hdf5") < 0:
-            name += ".hdf5"
+            name = 'gaia_dr3_galactic.h5'
+        elif isinstance(name, str) and name.find(".h5") < 0:
+            name += ".h5"
             name = Path(name)
         elif isinstance(name, Path) and name.suffix == "":
-            name.suffix = ".hdf5"
+            name.suffix = ".h5"
 
         with h5py.File(name, "w") as f:
             dset_data = f.create_dataset('data',
@@ -235,7 +239,8 @@ class EquatorialData:
                                             'radius_sersic': np.nan,
                                             'classlabel_dsc_joint': '',
                                             'vari_best_class_name': ''
-                                        })
+                                        },
+                                        encoding=None)
 
             # Condition to obtain a "purer" galaxy subsample from the
             # galaxy_candidates table, as in Gaia Collaboration (2022),
@@ -265,7 +270,8 @@ class EquatorialData:
                                             'host_galaxy_flag': 9,
                                             'classlabel_dsc_joint': '',
                                             'vari_best_class_name': ''
-                                        })
+                                        },
+                                        encoding=None)
 
             # Condition to obtain a "purer" quasar subsample from the
             # qso_candidates table, as in Gaia Collaboration (2022), Table 11.
@@ -331,7 +337,8 @@ class EquatorialData:
         correction = np.zeros(shape=zero_point.shape)
         correction[affected_stars] += zpt_correction
 
-        with h5py.File(path.parent.joinpath('zpt_corr.hdf5'), "w") as f:
+        analytics_folder = self.project_folder.joinpath('other-datasets')
+        with h5py.File(analytics_folder.joinpath('zpt_corr.h5'), "w") as f:
             dset_plx = f.create_dataset('orig_parallax',
                                         shape=zero_point.shape,
                                         dtype=float)
@@ -348,7 +355,7 @@ class EquatorialData:
             dset_corr[0:] = correction
 
         data['parallax'] -= zero_point
-        data['parallax'] -= correction
+        # data['parallax'] -= correction
 
         # Radial Velocity bias correction
         # (Katz et al. (2022), Blomme et al. (2022))
@@ -525,12 +532,12 @@ class EquatorialData:
                         corr = data[corr_name]
 
                     cov *= corr
-                elif i == j and err_i.find('parallax') >= 0:
-                    cov += VAR_SYS_PLX_SINGLE
+                # elif i == j and err_i.find('parallax') >= 0:
+                #     cov += VAR_SYS_PLX_SINGLE
 
-                    if data['source_id'] in correction_source_id:
-                        # extra correction error, if used
-                        cov += 2e-3**2  # mas^2
+                    # if data['source_id'] in correction_source_id:
+                    #     # extra correction error, if used
+                    #     cov += 2e-3**2  # mas^2
                 cov_icrs_astrometric[i, j] = cov
 
         CJ_t = np.dot(cov_icrs_astrometric, J.T)
