@@ -18,9 +18,6 @@ def main():
 
     parser.add_option('-n', '--name', dest='name', type='string',
                       help="Identifier of the object to query.")
-    parser.add_option('-o', '--output-folder', dest='output', type='string',
-                      default='./expected',
-                      help="Output folder to save the expected values in.")
     parser.add_option('-m', '--magnitude', dest='mag', type='float',
                       default=np.nan,
                       help="The magnitude of the object to be shown. Default "
@@ -33,11 +30,13 @@ def main():
 
     obj_name = options.name.lower()
 
-    out_folder = Path(options.output)
+    project_dir = Path(os.getcwd())
+
+    out_folder = project_dir.joinpath('expected')
     if not out_folder.exists():
         os.mkdir(out_folder)
 
-    out_path = out_folder.joinpath(f'{obj_name}_exp.csv')
+    out_path = out_folder.joinpath(f'{obj_name}-expected.csv')
 
     cs_simbad = Simbad()
     cs_simbad.add_votable_fields('parallax', 'pmra', 'pmdec', 'velocity')
