@@ -28,9 +28,15 @@ class build_ext(_build_ext):
 
 
 scripts = [
+    'starcluster-helper=starcluster.pipelines.helper:main',
+    'starcluster-setup=starcluster.pipelines.setup_folder:main',
+    'starcluster-dataset=starcluster.pipelines.generate_dataset:main',
     'starcluster-expected=starcluster.pipelines.expected:main',
 ]
 pymodules = [
+    'starcluster/pipelines/helper'
+    'starcluster/pipelines/setup_folder',
+    'starcluster/pipelines/generate_dataset',
     'starcluster/pipelines/expected',
 ]
 
