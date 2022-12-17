@@ -36,7 +36,7 @@ def main():
     if not out_folder.exists():
         os.mkdir(out_folder)
 
-    out_path = out_folder.joinpath(f'{obj_name}-expected.csv')
+    out_path = out_folder.joinpath(f'expected.csv')
 
     cs_simbad = Simbad()
     cs_simbad.add_votable_fields('parallax', 'pmra', 'pmdec', 'velocity')

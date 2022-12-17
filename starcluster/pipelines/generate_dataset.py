@@ -40,17 +40,17 @@ def main():
         name = project_dir.name
     name = name.lower()
 
-    orig_data_path = project_dir.joinpath('orig_data', f'{name}-orig-data.csv')
+    orig_data_path = project_dir.joinpath('orig_data', 'orig-data.csv')
 
     out_folder = Path(project_dir).joinpath('data')
-    out_file = out_folder.joinpath(f'{name}-data.h5')
+    out_file = out_folder.joinpath('data.h5')
 
     gal_cand_path = qso_cand_path = None
     if options.remove_galaxies:
         gal_cand_path = project_dir.joinpath('extragalactic_candidates',
-                                             f'{name}-gal-candidates.csv')
+                                             'gal-candidates.csv')
         qso_cand_path = project_dir.joinpath('extragalactic_candidates',
-                                             f'{name}-qso-candidates.csv')
+                                             'qso-candidates.csv')
 
     dataset = Data(
         path=orig_data_path,

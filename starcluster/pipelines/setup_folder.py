@@ -59,17 +59,17 @@ def main():
         'orig_data', 'extragalactic_candidates',
         'other-datasets',
         'data', 'expected',
-        'plots'
+        'samples', 'gaussian_stars', 'density',
+        'plots',
     ]
     for subfolder in subfolders:
         os.mkdir(project_folder.joinpath(subfolder))
 
-    new_input_path = project_folder.joinpath('orig_data',
-                                             f'{name}-orig-data.csv')
+    new_input_path = project_folder.joinpath('orig_data', 'orig-data.csv')
     new_gal_path = project_folder.joinpath('extragalactic_candidates',
-                                           f'{name}-gal-candidates.csv')
+                                           'gal-candidates.csv')
     new_qso_path = project_folder.joinpath('extragalactic_candidates',
-                                           f'{name}-qso-candidates.csv')
+                                           'qso-candidates.csv')
 
     os.rename(input_file, new_input_path)
     os.rename(gal_file, new_gal_path)
