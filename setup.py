@@ -52,7 +52,7 @@ setup(
     author_email='d.sanfratello@studenti.unipi.it, stefano.rinaldi@phd.unipi.it'
                  ', walter.delpozzo@unipi.it',
     url='https://github.com/d-sanfratello/starcluster',
-    python_requires='>=3.7',
+    python_requires='>=3.7.15',
     packages=['starcluster'],
     install_requires=requirements,
     pymodules=pymodules,
