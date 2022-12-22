@@ -3,28 +3,21 @@ import numpy as np
 from starcluster.const import A_G_INV
 
 
+keys = ['ra', 'dec', 'l', 'b', 'parallax',
+        'pmra', 'pmdec', 'radial_velocity']
+mags = ['g_mag', 'bp_mag', 'rp_mag',
+        'bp_rp', 'bp_g', 'g_rp']
+data = ['l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
+save_names = list(data)
+save_names.extend(['mag', 'c_index'])
+save_dtype = np.dtype([
+          (name, float)
+          for name in save_names
+      ])
+
+
 class ExpectedValues:
-    __keys = ['ra', 'dec', 'l', 'b', 'parallax',
-              'pmra', 'pmdec', 'radial_velocity']
-    __mags = ['g_mag', 'bp_mag', 'rp_mag',
-              'bp_rp', 'bp_g', 'g_rp']
-    __data = ['l', 'b', 'parallax', 'pml', 'pmb', 'radial_velocity']
-
-    def __new__(cls, expected, from_file=False):
-        setattr(cls, '_ExpectedValues__save_names', list(cls.__data))
-        cls.__save_names.extend(['mag', 'c_index'])
-        save_dtype = np.dtype([
-            (name, float)
-            for name in cls.__save_names
-        ])
-        setattr(cls, '_ExpectedValues__save_dtype', save_dtype)
-
-        self = super().__new__(cls)
-        setattr(self, '_ExpectedValues__from_file', from_file)
-
-        return self
-
-    def __init__(self, expected, from_file=None):
+    def __init__(self, expected, from_file=False):
         """
         Class to interpret the expected values for a cluster for the quantities
         used with the DPGMM, from the equatorial coordinates and relative
@@ -54,11 +47,13 @@ class ExpectedValues:
             photometric band and color index used.
 
         """
+        self.__from_file = from_file
+
         if self.__from_file is True:
             self.__initialize_from_file(expected)
             return
 
-        for k in self.__keys:
+        for k in keys:
             try:
                 setattr(self, k, expected[k])
             except KeyError:
@@ -66,12 +61,12 @@ class ExpectedValues:
                     f"Must include an expected value for {k}."
                     f"If unknown, use `None`.")
 
-        for m in self.__mags[:3]:
+        for m in mags[:3]:
             if m in expected.keys():
                 self.__mag = expected[m]
             else:
                 self.__mag = np.nan
-        for c in self.__mags[3:]:
+        for c in mags[3:]:
             if c in expected.keys():
                 self.__c_index = expected[c]
             else:
@@ -102,7 +97,7 @@ class ExpectedValues:
         self.pmb = np.dot(q_gal, mu_gal)
 
     def __initialize_from_file(self, expected):
-        for k in self.__data:
+        for k in data:
             setattr(self, k, expected[k][0])
 
         setattr(self, '_ExpectedValues__mag', expected['mag'][0])
@@ -110,8 +105,8 @@ class ExpectedValues:
 
     def save(self, path):
         array = self.__call__()
-        save_array = np.zeros(1, dtype=self.__save_dtype)
-        for _, name in enumerate(self.__save_dtype.names):
+        save_array = np.zeros(1, dtype=save_dtype)
+        for _, name in enumerate(save_dtype.names):
             save_array[name] = array[_]
 
         np.savetxt(
@@ -120,13 +115,13 @@ class ExpectedValues:
 
     @classmethod
     def load(cls, path):
-        expected = np.genfromtxt(path, dtype=cls.__save_dtype).reshape((1,))
+        expected = np.genfromtxt(path, dtype=save_dtype).reshape((1,))
 
         return ExpectedValues(expected=expected, from_file=True)
 
     def __call__(self):
         arr = []
-        for name in self.__data:
+        for name in data:
             arr.append(getattr(self, name))
         arr.append(self.__mag)
         arr.append(self.__c_index)
