@@ -52,12 +52,12 @@ setup(
     author_email='d.sanfratello@studenti.unipi.it, stefano.rinaldi@phd.unipi.it'
                  ', walter.delpozzo@unipi.it',
     url='https://github.com/d-sanfratello/starcluster',
-    python_requires='>=3.7.15',
+    python_requires='~=3.8.15',
     packages=['starcluster'],
     install_requires=requirements,
     pymodules=pymodules,
     include_dirs=[np.get_include()],
-    setup_requires=['numpy~=1.21.5', 'cython~=0.29.24'],
+    setup_requires=['numpy<=1.22', 'cython~=0.29.24'],
     entry_points={
         'console_scripts': scripts,
     },
